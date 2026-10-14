@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qué fue Cybersyn · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  article { max-width: 860px; margin: 0 auto; }
+  article h2 { margin-top: 2em; color: var(--naranja2); }
+  article p, article li { font-size: 1.04rem; }
+  .crono { list-style: none; padding: 0; border-left: 3px solid var(--naranja); margin-left: 6px; }
+  .crono li { padding: 0 0 14px 18px; position: relative; }
+  .crono li::before { content: ''; position: absolute; left: -9px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--fondo); border: 3px solid var(--naranja); }
+  .crono b { color: var(--naranja2); }
+  .nota { border-left: 4px solid var(--azul); background: rgba(87,163,239,.08); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .fuentes li { margin-bottom: 8px; }
+  table td:first-child { white-space: nowrap; font-weight: 700; }
+</style>
+</head>
+<body>
+<main class="envolver">
+<article>
+  <div class="etiqueta">Chile · 1971–1973</div>
+  <h1>Qué fue el Proyecto Cybersyn</h1>
+  <p>Cybersyn (en Chile, <b>Synco</b>: Sistema de Información y Control; el nombre juega también con el número cinco, los cinco niveles del modelo de Beer) fue el intento del gobierno de Salvador Allende de conducir las empresas del Área de Propiedad Social con las ideas de la cibernética de gestión del británico <b>Stafford Beer</b>. Las fábricas mandarían cada día sus índices de producción por télex; un computador los analizaría con estadística bayesiana y avisaría a cada nivel sólo cuando algo se saliera de lo normal, para que las decisiones se tomaran lo más abajo posible.</p>
+  <p>Funcionó como prototipo en expansión entre comienzos de 1972 y el golpe de Estado del 11 de septiembre de 1973.</p>
+
+  <h2>Cronología</h2>
+  <ul class="crono">
+    <li><b>Julio de 1971.</b> Fernando Flores, gerente técnico de CORFO, escribe a Stafford Beer para aplicar la cibernética al área nacionalizada.</li>
+    <li><b>Noviembre de 1971.</b> Primera visita de Beer a Santiago. Al explicarle a Allende el modelo de sistema viable y llegar al Sistema 5, Allende exclama: «¡Por fin, el pueblo!». Beer iba a decir que ese nivel era el del jefe de Estado.</li>
+    <li><b>Diciembre de 1971 – enero de 1972.</b> Beer contrata en Londres a Arthur Andersen &amp; Co. para programar Cyberstride (estudio preliminar £650; programación £19.000). Para el simulador recluta a Ron Anderton, K. A. Gilligan y Jonathan Rosenhead, que trabajan de noche en el computador del Queen Mary College.</li>
+    <li><b>21 de enero de 1972.</b> Primeros datos de cinco fábricas: Cemento Melón, Inforsa, Fabrilana, Textil Progreso y Said Maipú.</li>
+    <li><b>Marzo de 1972.</b> Alan Dunsmuir instala en ECOM la suite temporal de Cyberstride, con el método bayesiano de Harrison y Stevens. Anderton entrega el primer informe del modelo «Futuro». Beer escribe «Project Cyberfolk».</li>
+    <li><b>Junio de 1972.</b> ECOM publica los manuales del sistema (perforación TS-07, procesos computacionales TS-09). Hernán Avilés, del equipo CHECO, vuelve de entrenarse en DYNAMO con Anderton.</li>
+    <li><b>1 de septiembre de 1972.</b> El equipo CHECO dibuja la versión 1 de su modelo de la economía chilena.</li>
+    <li><b>Octubre de 1972.</b> Paro de los dueños de camiones (unos 40.000). Flores arma centros de mando unidos por télex al palacio; Beer estimó 2.000 mensajes diarios. Con unos 200 camiones leales se mantiene el abastecimiento. El paro termina el 2 de noviembre.</li>
+    <li><b>Noviembre de 1972.</b> La suite permanente de Cyberstride está en operación (Beer la data en agosto).</li>
+    <li><b>Comienzos de 1973.</b> El prototipo de la Sala de Operaciones queda armado. La prensa británica y luego la chilena («Plan secreto Cyberstride: la UP nos controla por computador», Qué Pasa, marzo) dan a conocer el proyecto.</li>
+    <li><b>3 al 6 de abril de 1973.</b> ECOM manda a la Sala de Operaciones el télex con las señales algedónicas «a nivel CORFO» que conserva el archivo Beer.</li>
+    <li><b>Mayo de 1973.</b> Según Eden Medina, el 26,7% de las empresas nacionalizadas, con la mitad de los ingresos del sector, estaba incorporado en algún grado.</li>
+    <li><b>23 de julio de 1973.</b> Raúl Espejo pide a ECOM una segunda fase: salas de operaciones en CORFO, en los comités sectoriales y en cada empresa.</li>
+    <li><b>Agosto de 1973.</b> En Lancaster corren las primeras pruebas del modelo final de Futuro; se evalúa comprar un computador híbrido EAI Pacer para la Sala.</li>
+    <li><b>11 de septiembre de 1973.</b> Golpe de Estado. El sistema se abandona y la Sala es desmantelada.</li>
+  </ul>
+
+  <h2>Las cinco piezas y cómo las emula SYNCO</h2>
+  <h3>Cybernet, la red</h3>
+  <p>Un teleimpresor Siemens T-100 en cada fábrica, conectado a la red pública de télex (centrales LM Ericsson ARM y ARB). Cada día hábil, desde las 15:00, una secretaria tecleaba en el télex el formulario que llenaban los supervisores: un código de 22 letras, la fecha DDMMAA y el valor, por ejemplo <span class="mono">CIMMELONPRODUCCCLINKER 210172 1225.00000</span>. La central de tráfico de CORFO (télex 40750) revisaba la consistencia, archivaba en carpetas y reenviaba todo a ECOM (40506). La Sala de Operaciones, contra lo que se suele creer, no tenía télex propio.</p>
+  <p><b>En SYNCO:</b> los equipos teclean el formulario, ven la cinta perforada en código ITA2, llaman a CORFO y transmiten a 50 baudios (unos 6,7 caracteres por segundo). CORFO revisa el formato con las reglas del manual de ECOM y pide correcciones.</p>
+  <h3>Cyberstride, el programa</h3>
+  <p>Escrito en Fortran (con un gancho en Assembler) para el IBM 360/50H de ECOM. PRO10 validaba las tarjetas; PRO20 calculaba, con los índices de Beer, la productividad P = actualidad/capacidad, la latencia L = capacidad/potencialidad y el rendimiento = actualidad/potencialidad, normalizados con un arcoseno, y los pasaba por el filtro bayesiano de cuatro estados de Harrison y Stevens (1971): sin cambio, escalón, cambio de pendiente o transitorio, con pesos 75 / 8,5 / 14,5 / 2. Si un índice se salía de su banda o cambiaba de comportamiento, se emitía una señal algedónica; si la empresa no la corregía en el plazo, subía al comité sectorial, después a CORFO y por último a la Sala.</p>
+  <p><b>En SYNCO:</b> las mismas fórmulas del diagrama de flujo de PRO20, el mismo filtro y el mismo JCL; los números se guardan en punto flotante hexadecimal del 360, y por eso aparecen los mismos decimales raros del listado de 1972.</p>
+  <h3>CHECO y Futuro, el simulador</h3>
+  <p>Un modelo de dinámica de sistemas de la economía chilena en lenguaje DYNAMO. El primer modelo de Anderton tenía nueve niveles (capital de cinco sectores, existencias de alimentos y de bienes de consumo, fondos de inversión y reservas de divisas); el equipo CHECO hizo un modelo de inflación con existencias, capital, capacidad ociosa, fondos, circulante y nivel de precios. Beer quería alimentarlo en tiempo real con los datos de Cyberstride; nunca se logró.</p>
+  <p><b>En SYNCO:</b> un intérprete DYNAMO completo con reconstrucciones de ambos modelos (las ecuaciones originales no se conservan enteras) y la conexión con Cyberstride que Beer no alcanzó a tener.</p>
+  <h3>La Sala de Operaciones</h3>
+  <p>Diseñada por el área de diseño industrial de INTEC dirigida por Gui Bonsiepe. Hexagonal, con siete sillones de fibra de vidrio sin mesas ni papel. Una pared con el Datafeed (una pantalla índice sobre tres pantallas de datos, con diapositivas proyectadas por detrás), dos pantallas algedónicas con flechas rojas, el modelo de sistema viable con datos (la pantalla «Staffy»), el Panel del Futuro y una pared reservada para el medidor algedónico. Las pantallas se manejaban con botones geométricos en los brazos y un botón de retención. Las diapositivas se dibujaban a mano y se fotografiaban.</p>
+  <h3>Cyberfolk, el medidor del pueblo</h3>
+  <p>Beer propuso medidores con una aguja entre total intranquilidad y total satisfacción, uno cada tres personas en locales comunitarios con televisor, sumados eléctricamente y mostrados en el estudio mientras se anunciaba una política. Nunca se construyó. <b>En SYNCO</b> cada celular es un medidor.</p>
+
+  <h2>¿Binario o ternario?</h2>
+  <p>Binario. El IBM System/360 trabaja con bytes de 8 bits y palabras de 32 bits; guarda los caracteres en EBCDIC y los números reales en punto flotante hexadecimal (base 16, almacenado en bits). El télex usaba el código ITA2 de 5 bits. Los computadores ternarios de la época, como el soviético Setun, fueron experimentos aislados y no tuvieron nada que ver con Cybersyn.</p>
+
+  <h2>Cifras que conviene tomar con cuidado</h2>
+  <div class="nota">El relato de Beer en la segunda edición de <i>Brain of the Firm</i> (1981) habla de unas 400 empresas operando el sistema hacia fines de 1972, y se repite que había 400 o 500 télex guardados sin usar. La investigación de archivo de Diego Gómez-Venegas (2024) encuentra otra cosa: 5 fábricas conectadas en marzo de 1972, unas 20 en septiembre de 1973 según Isaquino Benadof, y un informe de CORFO de abril de 1973 según el cual la empresa de telecomunicaciones tenía 265 teleimpresores. Medina, por su parte, da un 26,7% de empresas incorporadas «en algún grado» en mayo de 1973.</div>
+
+  <h2>Algunas personas</h2>
+  <table>
+    <tr><td>Stafford Beer</td><td>Cibernético británico, arquitecto del proyecto.</td></tr>
+    <tr><td>Fernando Flores</td><td>Gerente técnico de CORFO; después ministro.</td></tr>
+    <tr><td>Raúl Espejo</td><td>Director de operaciones del proyecto.</td></tr>
+    <tr><td>Gui Bonsiepe</td><td>Dirigió el diseño de la Sala en INTEC, con Rodrigo Walker, Guillermo Capdevila, Alfonso Gómez, Guillermo Cintolesi, Fernando Shultz, Michael Weiss, Wolfgang Eberhagen y Werner Zemp.</td></tr>
+    <tr><td>Isaquino Benadof</td><td>Jefe de computación de ECOM para Cyberstride.</td></tr>
+    <tr><td>Alan Dunsmuir</td><td>Programador de Arthur Andersen que instaló la suite temporal.</td></tr>
+    <tr><td>Ron Anderton</td><td>Ingeniero de sistemas, autor del modelo Futuro en DYNAMO.</td></tr>
+    <tr><td>Mario Grandi</td><td>Jefe del equipo CHECO en CORFO.</td></tr>
+    <tr><td>Humberto Gabella</td><td>Autor de la técnica de flujogramación cuantificada.</td></tr>
+    <tr><td>Sonia Mordojovich</td><td>Supervisó el modelamiento de las fábricas.</td></tr>
+    <tr><td>Roberto Cañete</td><td>Sala de Operaciones; destinatario del télex de abril de 1973.</td></tr>
+    <tr><td>Fernando Améstica</td><td>Ingeniero a cargo del uso de la red de télex.</td></tr>
+  </table>
+
+  <h2>Fuentes</h2>
+  <ul class="fuentes">
+    <li>Eden Medina, <i>Cybernetic Revolutionaries: Technology and Politics in Allende's Chile</i>, MIT Press, 2011 (en español: <i>Revolucionarios cibernéticos</i>, LOM).</li>
+    <li>Eden Medina, «Designing Freedom, Regulating a Nation: Socialist Cybernetics in Allende's Chile», <i>Journal of Latin American Studies</i> 38 (2006): 571–606.</li>
+    <li>Diego Gómez-Venegas, <i>Forecasting the Present: A Media-archaeo-genealogical Inquiry into Project Cybersyn</i>, tesis doctoral, Humboldt-Universität zu Berlin, 2024 (doi:10.18452/29151). Fuente de los formatos de datos, el JCL, el diagrama de PRO20, los pesos de Dunsmuir, las variables de Futuro y CHECO y la red de télex.</li>
+    <li>P. J. Harrison y C. F. Stevens, «A Bayesian Approach to Short-term Forecasting», <i>Operational Research Quarterly</i> 22, n.º 4 (1971): 341–362.</li>
+    <li>Stafford Beer, <i>Brain of the Firm</i>, 2.ª ed., Wiley, 1981; <i>Designing Freedom</i> (Massey Lectures, CBC, 1973).</li>
+    <li>Raúl Espejo, «Performance management, the nature of regulation and the CyberSyn project», <i>Kybernetes</i> 38 (2009); «Cybernetics of Governance: The Cybersyn Project 1971–1973», Springer, 2014.</li>
+    <li>Gui Bonsiepe, <i>The Disobedience of Design</i>, Bloomsbury, 2021.</li>
+    <li>Exposición «Cómo diseñar una revolución: la vía chilena al diseño», Centro Cultural La Moneda, 2023–2024, con la reconstrucción de la Sala.</li>
+    <li>Evgeny Morozov, <i>The Santiago Boys</i>, podcast, 2023.</li>
+  </ul>
+  <p class="tenue" style="margin-top:24px;font-size:.85rem">SYNCO 1.0 · Desarrollado por Francisco Aldunate · <a href="https://github.com/franciscoaldun/synco">github.com/franciscoaldun/synco</a></p>
+</article>
+</main>
+<script src="/js/comun.js"></script>
+<script>barra('Historia y fuentes'); conectar('historia').catch(() => {});</script>
+</body>
+</html>

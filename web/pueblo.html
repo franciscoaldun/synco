@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>El pueblo · Cyberfolk · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .caja { max-width: 560px; margin: 0 auto; text-align: center; }
+  .medidor { background: #e9e2d2; border-radius: 22px; padding: 18px 14px 8px; box-shadow: var(--sombra); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .medidor svg { width: 100%; height: auto; display: block; cursor: grab; }
+  .politica { font-size: 1.35rem; font-weight: 800; margin: 14px 0 6px; min-height: 1.6em; }
+  .nota { color: var(--tenue); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main class="envolver caja">
+  <div class="etiqueta" style="margin-top:8px">Proyecto Cyberfolk · 1972</div>
+  <div class="politica" id="politica">Sin anuncio en el aire</div>
+  <p class="nota">Mueva la aguja según cómo se siente con lo que se anuncia. No tiene que explicar nada.</p>
+  <div class="medidor" id="medidor"></div>
+  <p class="nota" id="resumen" style="margin-top:12px"></p>
+  <p class="nota" style="margin-top:18px;font-size:.84rem">Stafford Beer imaginó medidores conectados a la televisión: un medidor cada tres personas en locales comunitarios, sumados eléctricamente y mostrados en el estudio mientras se anunciaba una política. Nunca se construyó.</p>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+let valor = recuperar('medidor', 0), enviando = false, pendiente = false;
+const W = 400, H = 240, cx = 200, cy = 215, r = 170;
+
+function dibujar() {
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'slider', tabindex: 0, 'aria-label': 'Medidor algedónico', 'aria-valuemin': -100, 'aria-valuemax': 100, 'aria-valuenow': Math.round(valor * 100), 'aria-valuetext': `${Math.round((valor + 1) * 50)}% de satisfacción` });
+  for (let k = 0; k <= 40; k++) {
+    const a = Math.PI * (1 - k / 40), l = k % 10 === 0 ? 24 : 12;
+    s.append(svg('line', { x1: cx + Math.cos(a) * r, y1: cy - Math.sin(a) * r, x2: cx + Math.cos(a) * (r - l), y2: cy - Math.sin(a) * (r - l), stroke: `hsl(${k * 3}, 65%, 42%)`, 'stroke-width': k % 10 === 0 ? 4 : 2 }));
+  }
+  s.append(svg('text', { x: 18, y: 236, fill: '#a52b23', 'font-size': 15, 'font-weight': 700 }, 'intranquilidad'));
+  s.append(svg('text', { x: 382, y: 236, fill: '#2e7d3c', 'font-size': 15, 'font-weight': 700, 'text-anchor': 'end' }, 'satisfacción'));
+  const a = Math.PI * (1 - (valor + 1) / 2);
+  s.append(svg('line', { x1: cx, y1: cy, x2: cx + Math.cos(a) * (r - 22), y2: cy - Math.sin(a) * (r - 22), stroke: '#1b1714', 'stroke-width': 7, 'stroke-linecap': 'round' }));
+  s.append(svg('circle', { cx, cy, r: 13, fill: '#f07f22', stroke: '#1b1714', 'stroke-width': 3 }));
+  const m = $('#medidor'); m.replaceChildren(s);
+  const mover = ev => {
+    const b = s.getBoundingClientRect();
+    const x = (ev.clientX - b.left) / b.width * W - cx, y = cy - (ev.clientY - b.top) / b.height * H;
+    let ang = Math.atan2(Math.max(0, y), x);
+    valor = Math.max(-1, Math.min(1, 1 - 2 * ang / Math.PI));
+    dibujar(); enviar();
+  };
+  s.addEventListener('pointerdown', e => { s.setPointerCapture(e.pointerId); mover(e); s.onpointermove = mover; });
+  s.addEventListener('pointerup', () => { s.onpointermove = null; });
+  s.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') valor = Math.max(-1, valor - 0.05);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') valor = Math.min(1, valor + 0.05);
+    else return;
+    e.preventDefault(); dibujar(); enviar(); $('#medidor svg').focus();
+  });
+}
+
+async function enviar() {
+  guardar('medidor', valor);
+  if (enviando) { pendiente = true; return; }
+  enviando = true;
+  try { await api('/api/pueblo/medidor', { id: pid(), valor }); } catch (e) {}
+  enviando = false;
+  if (pendiente) { pendiente = false; setTimeout(enviar, 120); }
+}
+
+function pintar() {
+  const p = E.pueblo || {};
+  $('#politica').textContent = p.politica ? `«${p.politica}»` : 'Sin anuncio en el aire';
+  $('#resumen').textContent = p.n ? `${p.n} ${p.n === 1 ? 'medidor conectado' : 'medidores conectados'} · promedio ${Math.round((p.prom + 1) * 50)}% de satisfacción` : '';
+}
+
+barra('El pueblo');
+dibujar();
+setInterval(enviar, 8000); // mantener vivo el medidor
+alEvento(t => { if (t === 'estado' || t === 'pueblo' || t === 'politica') pintar(); });
+conectar('pueblo').then(() => { pintar(); enviar(); }).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

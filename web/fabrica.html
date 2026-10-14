@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fábrica · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .lado { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; align-items: start; }
+  @media (max-width: 960px) { .lado { grid-template-columns: 1fr; } }
+  .elegir { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .fab { display: flex; flex-direction: column; gap: 6px; }
+  .fab .linea-sector { height: 4px; border-radius: 2px; }
+  .formulario td input { min-height: 36px; padding: 6px 8px; font-family: var(--mono); }
+  .formulario .cod { font-family: var(--mono); font-size: .82rem; letter-spacing: .02em; word-break: break-all; }
+  .parte b { font-family: var(--mono); color: var(--naranja2); font-size: 1.05rem; }
+  .t100 { background: #cfc6b2; border-radius: 16px; padding: 14px; color: #2a241c; box-shadow: var(--sombra); }
+  .t100 h2 { color: #2a241c; display: flex; justify-content: space-between; align-items: baseline; }
+  .t100 .marca { font-size: .75rem; letter-spacing: .2em; color: #6b5f4b; }
+  .t100 .papel { height: 360px; overflow-y: auto; margin-bottom: 12px; }
+  .teclas { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .tecla { border-radius: 8px; border: 2px solid #2a241c; background: #f2ecdf; color: #2a241c; padding: 8px 12px; font-weight: 700; cursor: pointer; min-height: 42px; }
+  .tecla:hover { background: #fff; }
+  .tecla.roja { background: #b7372c; color: #fff; border-color: #6b1b14; }
+  .tecla:disabled { opacity: .5; cursor: not-allowed; }
+  .t100 textarea { background: #fbf7ec; color: var(--tinta-azul); font-family: var(--mono); min-height: 110px; text-transform: uppercase; border-color: #8f846d; }
+  .t100 label { color: #4b4234; }
+  .t100 select { background: #fbf7ec; color: #2a241c; border-color: #8f846d; }
+  .estado-linea { font-family: var(--mono); font-size: .85rem; color: #4b4234; min-height: 1.4em; }
+  .senal-f { border-left: 4px solid var(--rojo); padding: 8px 10px; margin: 8px 0; background: rgba(232,67,47,.07); border-radius: 0 8px 8px 0; }
+  .escalera { display: flex; gap: 3px; margin: 6px 0; }
+  .escalera span { flex: 1; text-align: center; font-size: .68rem; padding: 2px; border-radius: 3px; background: #2a2420; color: #8a7f70; }
+  .escalera span.ya { background: #4a1d17; color: #ffb9ad; }
+  .escalera span.ahora { background: var(--rojo); color: #fff; }
+</style>
+</head>
+<body>
+<main class="envolver" id="raiz"></main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+let miFabrica = recuperar('fabrica', null);
+let impresos = new Set(recuperar('impresos', []));
+let parte = null;
+let modoHistorico = false;
+let enviandoCinta = false;
+
+function f() { return miFabrica && fabrica(miFabrica); }
+function soyYo() { const x = f(); return x && x.humano === pid(); }
+
+// ---------- elegir fábrica ----------
+function pintarEleccion() {
+  const r = $('#raiz'); r.innerHTML = '';
+  r.append(el('h1', null, 'Elijan su fábrica'),
+    el('p', { class: 'tenue' }, 'Cada equipo se hace cargo de una empresa del Área de Propiedad Social. Todos los días hábiles, antes de las 17:00, deben pasar los índices del parte de producción al formulario de ECOM y transmitirlos por télex a la central de tráfico de CORFO (40750).'));
+  const nombre = el('input', { type: 'text', id: 'equipo', placeholder: 'Nombre del equipo (por ejemplo: 3°B, grupo 2)', value: recuperar('equipo', ''), maxlength: 40 });
+  r.append(el('div', { style: { maxWidth: '420px', margin: '10px 0 18px' } }, el('label', { for: 'equipo' }, 'Nombre del equipo'), nombre));
+  const g = el('div', { class: 'elegir' });
+  E.fabricas.forEach(x => {
+    const sec = sector(x.sector);
+    const libre = !x.humano || x.humano === pid();
+    g.append(el('div', { class: 'tarjeta fab' },
+      el('div', { class: 'linea-sector', style: { background: sec.color } }),
+      el('h3', null, x.corto), el('div', { class: 'tenue' }, `${sec.nombre} · ${x.lugar}`),
+      el('div', { class: 'tenue mono', style: { fontSize: '.85rem' } }, `Télex ${x.respuesta} · ${x.indices.length} índices`),
+      libre ? el('button', { class: 'boton primario', onclick: () => tomar(x.id, nombre.value) }, x.humano === pid() ? 'Volver a mi fábrica' : 'Tomar esta fábrica')
+        : el('span', { class: 'chip' }, `A cargo de «${x.equipo || 'otro equipo'}»`)));
+  });
+  r.append(g);
+}
+
+async function tomar(id, equipo) {
+  equipo = (equipo || '').trim() || 'Equipo sin nombre';
+  guardar('equipo', equipo);
+  await intentar(async () => {
+    await api('/api/fabrica/tomar', { fabrica: id, participante: pid(), equipo });
+    miFabrica = id; guardar('fabrica', id);
+    await recargar();
+  });
+}
+
+async function soltar() {
+  await intentar(() => api('/api/fabrica/soltar', { fabrica: miFabrica }));
+  miFabrica = null; guardar('fabrica', null); pintar();
+}
+
+// ---------- puesto de la fábrica ----------
+async function cargarParte() {
+  parte = await obtener('/api/parte/' + miFabrica);
+}
+
+function pintarPuesto() {
+  const x = f(), sec = sector(x.sector);
+  const r = $('#raiz'); r.innerHTML = '';
+  r.append(el('div', { class: 'fila', style: { marginBottom: '12px' } },
+    el('div', { class: 'crece' }, el('div', { class: 'etiqueta' }, `${sec.nombre} · ${x.lugar}`), el('h1', { style: { margin: 0 } }, x.nombre)),
+    el('span', { class: 'chip naranja' }, `Equipo «${x.equipo}»`),
+    el('button', { class: 'boton chico', onclick: soltar }, 'Dejar la fábrica')));
+  const izq = el('div', { class: 'col' }), der = el('div', { class: 'col' });
+  r.append(el('div', { class: 'lado' }, izq, der));
+
+  // parte de producción
+  const tp = el('div', { class: 'tarjeta parte' }, el('h2', null, 'Parte de producción'),
+    el('p', { class: 'tenue' }, `Lo que midieron hoy los supervisores (${parte.fecha.slice(0, 2)}-${parte.fecha.slice(2, 4)}-${parte.fecha.slice(4)}).`));
+  const tabla = el('table', null, el('thead', null, el('tr', null, el('th', null, 'Proceso'), el('th', null, 'Valor medido'))));
+  const tb = el('tbody');
+  parte.valores.forEach(v => tb.append(el('tr', null, el('td', null, v.nombre), el('td', null, el('b', null, v.valor), ' ', el('span', { class: 'tenue' }, v.unidad)))));
+  tabla.append(tb); tp.append(tabla);
+  tp.append(el('h3', { style: { marginTop: '14px' } }, 'Novedades del turno'), el('ul', null, parte.novedades.map(n => el('li', null, n))));
+  izq.append(tp);
+
+  // señales
+  const ts = el('div', { class: 'tarjeta' }, el('h2', null, 'Señales algedónicas'));
+  const sen = E.senales.filter(s => s.fabrica === x.id && s.estado === 'activa');
+  if (!sen.length) ts.append(el('p', { class: 'tenue' }, 'Ninguna. Cyberstride no ve nada raro en sus índices.'));
+  sen.forEach(s => {
+    const d = el('div', { class: 'senal-f' },
+      el('b', null, `${s.abrev} · ${s.tipo} ${s.direccion}`),
+      el('div', { class: 'tenue', style: { fontSize: '.85rem' } }, `Desde el ${s.fechaInicio}. Si no se corrige en ${E.config.ventanaDias} días sube al siguiente nivel.`),
+      el('div', { class: 'escalera' }, [1, 2, 3, 4].map(n => el('span', { class: n < s.nivel ? 'ya' : n === s.nivel ? 'ahora' : '' }, NIVELES[n]))));
+    if (s.esperando) d.append(el('div', { class: 'chip amarillo' }, 'Télex en camino: ' + s.esperando));
+    else {
+      const a = el('div', { class: 'fila', style: { gap: '6px' } });
+      E.acciones.filter(ac => ac.id !== 'autonomia').forEach(ac => a.append(el('button', { class: 'boton chico', onclick: () => decidir(s.id, ac.id) }, ac.nombre)));
+      d.append(el('div', { class: 'tenue', style: { fontSize: '.85rem', margin: '6px 0' } }, '¿Qué hace la empresa? Lean las novedades del turno: la acción tiene que atacar la causa.'), a);
+    }
+    ts.append(d);
+  });
+  izq.append(ts);
+
+  // teleimpresor
+  der.append(pintarT100(x));
+  pintarFormulario();
+  imprimirPendientes(false);
+}
+
+async function decidir(senal, accion) {
+  await intentar(async () => { await api('/api/decidir', { senal, accion, fabrica: miFabrica }); aviso('Decisión enviada por télex.'); });
+}
+
+// ---------- Siemens T-100 ----------
+function pintarT100(x) {
+  const c = el('section', { class: 't100', 'aria-label': 'Teleimpresor Siemens T-100' },
+    el('h2', null, el('span', null, 'Teleimpresor'), el('span', { class: 'marca' }, 'SIEMENS · T 100 · 50 BD')),
+    el('div', { class: 'papel', id: 'papel', 'aria-live': 'polite' }),
+    el('div', { class: 'estado-linea', id: 'linea' }, `LINEA LIBRE · ${x.respuesta}`));
+  const form = el('div', { id: 'formulario' });
+  const destino = el('select', { id: 'destino' },
+    el('option', { value: '40750' }, 'CORFO · central de tráfico · 40750'),
+    el('option', { value: sector(x.sector).telex }, `${sector(x.sector).comite} · ${sector(x.sector).telex}`),
+    el('option', { value: '40506' }, 'ECOM · centro de cómputo · 40506'));
+  const texto = el('textarea', { id: 'cinta-texto', 'aria-label': 'Texto para perforar en la cinta', spellcheck: 'false', oninput: actualizarCinta });
+  c.append(
+    el('div', { class: 'fila', style: { justifyContent: 'space-between' } },
+      el('h3', { style: { margin: '6px 0' } }, 'Formulario ECOM'),
+      el('label', { class: 'check', style: { color: '#2a241c' } }, el('input', { type: 'checkbox', id: 'historico', onchange: e => { modoHistorico = e.target.checked; pintarFormulario(); } }), 'teclear todo a mano')),
+    form,
+    el('label', { for: 'cinta-texto', style: { marginTop: '10px' } }, 'Lo que se va a perforar en la cinta'), texto,
+    el('div', { class: 'cinta', id: 'cinta', style: { marginTop: '8px' } }),
+    el('div', { class: 'fila', style: { marginTop: '10px' } }, el('div', { class: 'crece' }, el('label', { for: 'destino' }, 'Llamar a'), destino)),
+    el('div', { class: 'teclas' },
+      el('button', { class: 'tecla roja', id: 'transmitir', onclick: transmitir }, '☎ Llamar y transmitir la cinta'),
+      el('button', { class: 'tecla', onclick: () => { $('#cinta-texto').value = ''; actualizarCinta(); } }, 'Botar la cinta'),
+      el('button', { class: 'tecla', title: '¿Quién es? (WRU): pide la identificación de la otra máquina', onclick: () => Sonido.campana() }, '✠ ¿Quién es?'),
+      el('button', { class: 'tecla', onclick: () => { const on = Sonido.alternar(); aviso(on ? 'Sonido encendido' : 'Sonido apagado'); } }, '♪ Sonido')),
+    el('p', { style: { fontSize: '.82rem', color: '#4b4234', margin: 0 } }, 'A 50 baudios el T-100 transmite unos 6,7 caracteres por segundo. Cada carácter viaja como 5 bits en código ITA2, con cambios de LETRAS a CIFRAS.'));
+  return c;
+}
+
+function pintarFormulario() {
+  const x = f(); if (!x || !parte) return;
+  const form = $('#formulario'); if (!form) return;
+  form.innerHTML = '';
+  if (modoHistorico) {
+    form.append(el('p', { style: { color: '#4b4234', fontSize: '.9rem' } }, 'Escriban en la cinta cada línea con el código de 22 letras, la fecha DDMMAA y el valor con punto decimal, por ejemplo: CIMMELONPRODUCCCLINKER 210172 1225.0'));
+    return;
+  }
+  const t = el('table', { class: 'formulario' }, el('thead', null, el('tr', null, el('th', null, 'Código'), el('th', null, 'Fecha'), el('th', null, 'Valor'))));
+  const tb = el('tbody');
+  x.indices.forEach((ix, i) => tb.append(el('tr', null,
+    el('td', { class: 'cod' }, ix.codigo),
+    el('td', null, el('input', { type: 'text', inputmode: 'numeric', maxlength: 6, placeholder: 'DDMMAA', 'aria-label': 'Fecha de ' + ix.nombre, 'data-i': i, 'data-c': 'f', oninput: componer })),
+    el('td', null, el('input', { type: 'text', inputmode: 'decimal', maxlength: 14, placeholder: 'valor', 'aria-label': 'Valor de ' + ix.nombre, 'data-i': i, 'data-c': 'v', oninput: componer })))));
+  t.append(tb);
+  form.append(t, el('p', { style: { color: '#4b4234', fontSize: '.85rem', margin: '6px 0 0' } }, 'Reglas del manual de ECOM: fecha DDMMAA con ceros a la izquierda, punto decimal (no coma), cifras alineadas a la derecha.'));
+}
+
+function componer() {
+  const x = f();
+  const lineas = x.indices.map((ix, i) => {
+    const fe = ($(`input[data-i="${i}"][data-c="f"]`)?.value || '').trim();
+    const v = ($(`input[data-i="${i}"][data-c="v"]`)?.value || '').trim();
+    if (!fe && !v) return null;
+    return `${ix.codigo} ${fe} ${v.padStart(12, ' ')}`;
+  }).filter(Boolean);
+  $('#cinta-texto').value = lineas.join('\n');
+  actualizarCinta();
+}
+
+function actualizarCinta() {
+  dibujarCinta($('#cinta'), ITA2.codificar($('#cinta-texto').value));
+}
+
+async function transmitir() {
+  const txt = $('#cinta-texto').value.trim();
+  if (!txt) { aviso('La cinta está vacía.', 'error'); return; }
+  const destino = $('#destino').value;
+  const b = $('#transmitir'); b.disabled = true;
+  const linea = $('#linea');
+  const papel = $('#papel');
+  Sonido.campana();
+  linea.textContent = 'TIMBRE · LA CORRIENTE DE LINEA SUBE DE 5 A 35 MA · LA CENTRAL ARB BUSCA UN CIRCUITO…';
+  await espera(900);
+  linea.textContent = 'ARRANCA EL MOTOR · LA CENTRAL ARM RESPONDE CON UN PULSO DE 25 MS…';
+  await espera(1100);
+  papel.append(el('span', { class: 'sistema' }, '\nGA  '));
+  linea.textContent = `MARCANDO ${destino}…`;
+  await espera(700);
+  enviandoCinta = true;
+  try {
+    const msg = await api('/api/telex', { fabrica: miFabrica, destino, texto: txt });
+    impresos.add(msg.id); guardar('impresos', Array.from(impresos).slice(-300));
+    enviandoCinta = false;
+    linea.textContent = `CONECTADO CON ${msg.aNombre} · TRANSMITIENDO ${msg.caracteres} CARACTERES…`;
+    imprimirTelex(papel, msg.texto.replace(/^GA\n/, '') + '\n', msg.duracionMs / Math.max(1, msg.caracteres), () => {
+      linea.textContent = `FIN DE LA TRANSMISION · ${msg.caracteres} CARACTERES EN ${(msg.duracionMs / 1000).toFixed(1)} S`;
+      b.disabled = false;
+      $('#cinta-texto').value = ''; actualizarCinta();
+      $$('#formulario input').forEach(i => i.value = '');
+    }, 'salida');
+  } catch (e) {
+    enviandoCinta = false;
+    papel.append(el('span', { class: 'sistema' }, `${e.message.toUpperCase()}\n`));
+    linea.textContent = 'LLAMADA RECHAZADA';
+    aviso(e.message, 'error');
+    b.disabled = false;
+  }
+}
+function espera(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// imprime en el papel los télex de y para esta fábrica
+let imprimiendo = false, cola = [];
+function imprimirPendientes(animar) {
+  const x = f(); if (!x) return;
+  const papel = $('#papel'); if (!papel) return;
+  const mios = E.telex.filter(m => m.a === x.telex || m.de === x.telex);
+  if (!animar) {
+    papel.innerHTML = '';
+    mios.forEach(m => { papel.append(el('span', { class: m.de === x.telex ? 'salida' : '' }, m.texto + '\n\n')); impresos.add(m.id); });
+    papel.scrollTop = papel.scrollHeight;
+    return;
+  }
+  mios.filter(m => !impresos.has(m.id) && !(enviandoCinta && m.humano && m.de === x.telex)).forEach(m => { impresos.add(m.id); cola.push(m); });
+  guardar('impresos', Array.from(impresos).slice(-300));
+  siguiente();
+}
+function siguiente() {
+  if (imprimiendo || !cola.length) return;
+  const m = cola.shift(), papel = $('#papel'); if (!papel) return;
+  imprimiendo = true;
+  if (m.a === f().telex) Sonido.campana();
+  const ms = Math.max(4, m.duracionMs / Math.max(1, m.caracteres));
+  imprimirTelex(papel, m.texto + '\n\n', ms, () => { imprimiendo = false; siguiente(); }, m.de === f().telex ? 'salida' : '');
+}
+
+// ---------- ciclo ----------
+async function pintar() {
+  if (!E) return;
+  if (!miFabrica || !f() || (f().humano && f().humano !== pid())) { miFabrica = null; pintarEleccion(); return; }
+  if (!soyYo()) { pintarEleccion(); return; }
+  await cargarParte().catch(e => aviso(e.message, 'error'));
+  pintarPuesto();
+}
+
+barra('Fábrica');
+alEvento(async (t, d) => {
+  if (t === 'estado' || t === 'fabricas') { if (!$('#papel') || !soyYo()) pintar(); return; }
+  if (t === 'dia') { await pintar(); return; }
+  if (t === 'telex' && f() && (d.a === f().telex || d.de === f().telex)) setTimeout(() => imprimirPendientes(true), 50);
+  if ((t === 'senal' || t === 'senales') && soyYo()) { const p = $('#papel')?.innerHTML; pintarPuestoConservando(p); }
+});
+function pintarPuestoConservando(htmlPapel) {
+  const cinta = $('#cinta-texto')?.value, valores = $$('#formulario input').map(i => i.value);
+  pintarPuesto();
+  if (htmlPapel != null) { $('#papel').innerHTML = htmlPapel; $('#papel').scrollTop = $('#papel').scrollHeight; }
+  if (cinta) { $('#cinta-texto').value = cinta; actualizarCinta(); }
+  $$('#formulario input').forEach((i, k) => i.value = valores[k] || '');
+}
+conectar('fabrica', miFabrica || '').then(pintar).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

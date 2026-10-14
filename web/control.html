@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel del docente · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .control { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { .control { grid-template-columns: 1fr; } }
+  .deslizador { margin: 10px 0; }
+  .deslizador .fila { justify-content: space-between; }
+  .deslizador output { font-family: var(--mono); color: var(--naranja2); }
+  .bitacora { font-family: var(--mono); font-size: .8rem; max-height: 280px; overflow-y: auto; white-space: pre-wrap; color: var(--tenue); }
+  .qr-modal { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: grid; place-items: center; z-index: 80; }
+  .qr-modal .tarjeta { text-align: center; max-width: 360px; }
+  td .boton { margin: 2px; }
+  .sin-acceso { max-width: 560px; margin: 40px auto; }
+</style>
+</head>
+<body>
+<main class="envolver" id="raiz"></main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+claveDocente();
+
+function deslizador(id, titulo, min, max, paso, valor, formato, alCambiar) {
+  const out = el('output', { for: id }, formato(valor));
+  const inp = el('input', { type: 'range', id, min, max, step: paso, value: valor,
+    oninput: e => out.textContent = formato(+e.target.value), onchange: e => alCambiar(+e.target.value) });
+  return el('div', { class: 'deslizador' }, el('div', { class: 'fila' }, el('label', { for: id, style: { margin: 0 } }, titulo), out), inp);
+}
+
+async function config(cambio) {
+  await intentar(() => api('/api/control/config', Object.assign({}, E.config, cambio)));
+}
+
+function pintar() {
+  const r = $('#raiz');
+  if (!RED.docente) {
+    r.innerHTML = '';
+    r.append(el('div', { class: 'tarjeta sin-acceso' }, el('h1', null, 'Panel del docente'),
+      el('p', null, 'Este panel sólo funciona en el computador donde corre SYNCO, o agregando la clave del docente que aparece en la ventana del programa:'),
+      el('p', { class: 'mono' }, location.origin + '/control?clave=XXXXXXXX')));
+    return;
+  }
+  const c = E.config;
+  r.innerHTML = '';
+  const izq = el('div', { class: 'col' }), der = el('div', { class: 'col' });
+  r.append(el('div', { class: 'control' }, izq, der));
+
+  // reloj
+  izq.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Reloj'),
+    el('div', { class: 'fila' },
+      el('button', { class: 'boton primario', onclick: () => intentar(() => api('/api/control/pausa', { pausa: !E.reloj.pausa })) }, E.reloj.pausa ? '▶ Seguir' : '⏸ Pausar'),
+      el('button', { class: 'boton', onclick: () => intentar(() => api('/api/control/saltar')) }, '⏭ Terminar esta fase')),
+    E.reloj.esperando && E.reloj.esperando.length ? el('p', { class: 'chip amarillo', style: { marginTop: '10px' } }, 'Esperando a: ' + E.reloj.esperando.join(', ')) : null,
+    deslizador('vel', 'Velocidad', 0.25, 6, 0.25, c.velocidad, v => `×${v}`, v => config({ velocidad: v })),
+    deslizador('spd', 'Segundos reales por jornada', 30, 300, 5, c.segundosPorDia, v => `${v} s`, v => config({ segundosPorDia: v })),
+    deslizador('vtx', 'Velocidad del télex', 1, 30, 1, c.velTelex, v => v === 1 ? '50 baudios reales' : `×${v}`, v => config({ velTelex: v })),
+    el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: c.esperarHumanos, onchange: e => config({ esperarHumanos: e.target.checked }) }), 'Esperar a que los equipos transmitan'),
+    el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: c.revisaCORFO, onchange: e => config({ revisaCORFO: e.target.checked }) }), 'CORFO revisa la consistencia de los télex'),
+    el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: c.salaAutomatica, onchange: e => config({ salaAutomatica: e.target.checked }) }), 'Si nadie decide en la Sala, decide el motor')));
+
+  // economía
+  izq.append(el('section', { class: 'tarjeta' }, el('h2', null, 'La economía'),
+    deslizador('tur', 'Imprevistos por fábrica y día', 0, 0.3, 0.01, c.turbulencia, v => `${Math.round(v * 100)}%`, v => config({ turbulencia: v })),
+    deslizador('aut', 'Autonomía: probabilidad diaria de que un nivel corrija solo', 0, 1, 0.05, c.autonomia, v => `${Math.round(v * 100)}%`, v => config({ autonomia: v })),
+    deslizador('dig', 'Errores al teclear en fábricas automáticas', 0, 0.2, 0.01, c.erroresDigitacion, v => `${Math.round(v * 100)}%`, v => config({ erroresDigitacion: v })),
+    deslizador('ven', 'Días en cada nivel antes de escalar', 1, 5, 1, c.ventanaDias, v => `${v}`, v => config({ ventanaDias: v })),
+    E.escenario.camiones ? el('p', null, el('span', { class: 'chip naranja' }, `Camiones leales disponibles: ${E.camiones}`)) : null));
+
+  // escenario
+  const sel = el('select', { id: 'esc' }, E.escenarios.map(s => el('option', { value: s.id, selected: s.id === E.escenario.id }, s.titulo)));
+  izq.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Escenario'),
+    el('p', { class: 'tenue' }, E.escenario.descripcion), el('label', { for: 'esc' }, 'Empezar de nuevo con'), sel,
+    el('button', { class: 'boton peligro', style: { marginTop: '10px' }, onclick: () => intentar(() => api('/api/control/reiniciar', { escenario: sel.value })) }, 'Reiniciar la sesión')));
+
+  // anuncio por televisión
+  const pol = el('input', { type: 'text', id: 'pol', placeholder: 'Ej.: Se congelan los precios de 3.000 productos', maxlength: 120 });
+  izq.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Anuncio por televisión'),
+    el('p', { class: 'tenue' }, 'El pueblo reacciona con sus medidores algedónicos en tiempo real.'),
+    el('label', { for: 'pol' }, 'Política que se anuncia'), pol,
+    el('button', { class: 'boton primario', style: { marginTop: '10px' }, onclick: () => intentar(() => api('/api/control/politica', { texto: pol.value })) }, 'Anunciar'),
+    E.pueblo.politica ? el('p', { style: { marginTop: '8px' } }, `En el aire: «${E.pueblo.politica}» · ${E.pueblo.n} ${E.pueblo.n === 1 ? 'medidor' : 'medidores'}`) : null));
+
+  // exportar
+  izq.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Datos para analizar'),
+    el('div', { class: 'col' },
+      el('a', { class: 'boton', href: '/api/export/historico.csv' }, 'Archivo histórico de Cyberstride (CSV)'),
+      el('a', { class: 'boton', href: '/api/export/telex.txt' }, 'Todos los télex (TXT)'),
+      el('a', { class: 'boton', href: '/api/export/bitacora.txt' }, 'Bitácora de la sesión'))));
+
+  // fábricas
+  const tf = el('table', null, el('thead', null, el('tr', null, ['Empresa', 'Sector', 'Opera', 'Hoy', 'Señales', ''].map(t => el('th', null, t)))));
+  const tb = el('tbody');
+  E.fabricas.forEach(f => {
+    const sen = E.senales.filter(s => s.fabrica === f.id && s.estado === 'activa');
+    tb.append(el('tr', null,
+      el('td', null, el('b', null, f.corto), el('div', { class: 'tenue mono', style: { fontSize: '.78rem' } }, f.telex)),
+      el('td', null, sector(f.sector).nombre),
+      el('td', null, f.humano ? el('span', { class: 'chip naranja' }, f.equipo || 'equipo') : el('span', { class: 'tenue' }, 'automática')),
+      el('td', null, f.enviado === E.reloj.dia ? el('span', { class: 'chip verde' }, 'transmitió') : el('span', { class: 'tenue' }, '—')),
+      el('td', null, sen.length ? el('span', { class: 'chip rojo' }, sen.length) : '—'),
+      el('td', null,
+        el('button', { class: 'boton chico', onclick: () => mostrarQR(f) }, 'QR'),
+        f.humano ? el('button', { class: 'boton chico', onclick: () => intentar(() => api('/api/fabrica/soltar', { fabrica: f.id })) }, 'Liberar') : null)));
+  });
+  tf.append(tb);
+  der.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Fábricas'), el('div', { class: 'tabla-scroll' }, tf)));
+
+  // imprevistos
+  const idx = el('select', { id: 'ix' }, E.indices.map(i => el('option', { value: i.codigo }, `${fabrica(i.fabrica).corto} · ${i.nombre}`)));
+  const tipo = el('select', { id: 'tipo' }, [['escalon', 'Escalón (caída brusca)'], ['pendiente', 'Pendiente (deterioro gradual)'], ['transitorio', 'Transitorio (un solo día)'], ['digitacion', 'Error de digitación en el télex']].map(([v, t]) => el('option', { value: v }, t)));
+  const causa = el('select', { id: 'causa' }, [['materia_prima', 'Falta de materias primas'], ['mantencion', 'Falla de maquinaria'], ['ausentismo', 'Ausentismo'], ['transporte', 'Paro del transporte'], ['demanda', 'Baja demanda'], ['mejora', 'Mejora (sube la producción)']].map(([v, t]) => el('option', { value: v }, t)));
+  const mag = el('input', { type: 'number', id: 'mag', value: -0.2, step: 0.05, min: -0.6, max: 0.3 });
+  der.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Provocar un imprevisto'),
+    el('p', { class: 'tenue' }, 'Cambia lo que pasa en el piso de la fábrica. Cyberstride no lo sabe: sólo verá los índices que lleguen por télex.'),
+    el('div', { class: 'grilla g2' },
+      el('div', null, el('label', { for: 'ix' }, 'Índice'), idx), el('div', null, el('label', { for: 'tipo' }, 'Tipo'), tipo),
+      el('div', null, el('label', { for: 'causa' }, 'Causa'), causa), el('div', null, el('label', { for: 'mag' }, 'Magnitud (fracción de la capacidad; por día si es pendiente)'), mag)),
+    el('button', { class: 'boton primario', style: { marginTop: '10px' }, onclick: () => intentar(async () => {
+      let m = +mag.value; if (tipo.value === 'pendiente') m = m / 10;
+      await api('/api/control/evento', { codigo: idx.value, tipo: tipo.value, causa: causa.value, magnitud: causa.value === 'mejora' ? Math.abs(m) : m, duracion: tipo.value === 'pendiente' ? 10 : 0 });
+      aviso('Imprevisto programado. Aparecerá en los índices de ' + fabrica(indice(idx.value).fabrica).corto + '.');
+    }) }, 'Provocar')));
+
+  // señales
+  const ts = el('table', null, el('thead', null, el('tr', null, ['Señal', 'Nivel', 'Causa', ''].map(t => el('th', null, t)))));
+  const tsb = el('tbody');
+  E.senales.filter(s => s.estado === 'activa').sort((a, b) => b.nivel - a.nivel).forEach(s => {
+    tsb.append(el('tr', null,
+      el('td', null, el('b', null, `${fabrica(s.fabrica)?.corto} · ${s.abrev}`), el('div', { class: 'tenue', style: { fontSize: '.82rem' } }, `${s.tipo} ${s.direccion} · desde ${s.fechaInicio}`)),
+      el('td', null, el('span', { class: 'chip rojo' }, NIVELES[s.nivel]), el('div', { class: 'tenue', style: { fontSize: '.8rem' } }, `${s.diasNivel} día(s)`)),
+      el('td', null, s.causa ? s.causa.toLowerCase() : el('span', { class: 'tenue' }, 'desconocida'), s.esperando ? el('div', { class: 'chip amarillo' }, s.esperando) : null),
+      el('td', null, s.nivel < 4 ? el('button', { class: 'boton chico', onclick: () => intentar(() => api('/api/control/llevar-sala', { senal: s.id })) }, 'Llevar a la Sala') : null)));
+  });
+  ts.append(tsb);
+  der.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Señales algedónicas activas'), tsb.children.length ? el('div', { class: 'tabla-scroll' }, ts) : el('p', { class: 'tenue' }, 'Ninguna por ahora.')));
+
+  // conectados
+  const roles = {};
+  CONECTADOS.forEach(c => roles[c.rol] = (roles[c.rol] || 0) + 1);
+  der.append(el('section', { class: 'tarjeta' }, el('h2', null, `Conectados: ${CONECTADOS.length}`),
+    el('div', { class: 'fila' }, Object.entries(roles).map(([r, n]) => el('span', { class: 'chip' }, `${r}: ${n}`))),
+    el('p', { class: 'tenue', style: { marginTop: '10px' } }, 'Direcciones para la clase: ', (RED.urls || []).join(' · ') || 'sin red local')));
+
+  // bitácora
+  der.append(el('section', { class: 'tarjeta' }, el('h2', null, 'Bitácora'), el('div', { class: 'bitacora', id: 'bit' }, E.bitacora.slice(-80).reverse().join('\n'))));
+}
+
+function mostrarQR(f) {
+  const url = urlCompartir('/fabrica');
+  const m = el('div', { class: 'qr-modal', onclick: e => { if (e.target === m) m.remove(); } },
+    el('div', { class: 'tarjeta' }, el('h2', null, f.corto), qrImg(url, 260), el('p', { class: 'mono', style: { marginTop: '10px' } }, url),
+      el('p', { class: 'tenue' }, 'El equipo abre la dirección y elige esta fábrica.'),
+      el('button', { class: 'boton', onclick: () => m.remove() }, 'Cerrar')));
+  document.body.append(m);
+}
+
+let t0 = null;
+function repintar() {
+  clearTimeout(t0);
+  t0 = setTimeout(() => {
+    // no perder lo que el docente está escribiendo o eligiendo
+    const y = scrollY, enfocado = document.activeElement?.id, valores = {};
+    $$('input[type=text], input[type=number], select').forEach(i => { if (i.id) valores[i.id] = i.value; });
+    pintar();
+    for (const [id, v] of Object.entries(valores)) { const i = document.getElementById(id); if (i && id !== 'esc') i.value = v; }
+    scrollTo(0, y);
+    if (enfocado && document.getElementById(enfocado)) document.getElementById(enfocado).focus();
+  }, 150);
+}
+barra('Panel del docente');
+alEvento(t => {
+  if (t === 'reloj') return;
+  if (t === 'bitacora') { const b = $('#bit'); if (b) b.textContent = E.bitacora.slice(-80).reverse().join('\n'); return; }
+  if (['telex', 'telexFin', 'pueblo', 'indices', 'ecom', 'evento'].includes(t)) return;
+  repintar();
+});
+let ultimaPausa = null, ultimoEsperando = '';
+setInterval(() => {
+  if (!E) return;
+  const esp = (E.reloj.esperando || []).join(',');
+  if (E.reloj.pausa !== ultimaPausa || esp !== ultimoEsperando) { ultimaPausa = E.reloj.pausa; ultimoEsperando = esp; repintar(); }
+}, 700);
+conectar('control').then(pintar).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

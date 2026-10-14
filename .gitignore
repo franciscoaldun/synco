@@ -1,0 +1,4 @@
+# Los ejecutables se publican en Releases, no en el repositorio
+dist/
+*.exe
+*.exe~

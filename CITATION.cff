@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "Si usas SYNCO en clases, investigaciones o exposiciones, cítalo así."
+title: "SYNCO: emulador del Proyecto Cybersyn (Chile, 1971-1973)"
+abstract: >-
+  Emulador educativo del Proyecto Cybersyn para colegios y universidades. Un solo
+  ejecutable portable, sin instalación ni internet, que levanta un servidor en la
+  red local para que un curso completo opere a la vez las fábricas del Área Social,
+  la red de télex Cybernet, el IBM System/360 de ECOM con el programa estadístico
+  Cyberstride, el simulador DYNAMO de CHECO, la Sala de Operaciones y el medidor
+  algedónico Cyberfolk, en tiempo real y desde sus celulares.
+authors:
+  - family-names: "Aldunate Rodríguez"
+    given-names: "Francisco"
+    email: "franciscoaldun@gmail.com"
+    website: "https://franciscoaldunate.cl"
+    city: "Talca"
+    country: "CL"
+repository-code: "https://github.com/franciscoaldun/synco"
+url: "https://github.com/franciscoaldun/synco"
+license: MIT
+version: "1.0"
+date-released: "2026-10-13"
+keywords:
+  - Cybersyn
+  - Synco
+  - Stafford Beer
+  - cibernética
+  - Chile
+  - historia de la computación
+  - IBM System/360
+  - educación
+  - simulación

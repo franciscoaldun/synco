@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel del Futuro · CHECO · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .fut { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { .fut { grid-template-columns: 1fr; } }
+  #fuente { font-family: var(--mono); font-size: 12.5px; min-height: 460px; white-space: pre; overflow: auto; line-height: 1.45; text-transform: uppercase; }
+  .impresora { font-family: var(--mono); font-size: 11px; line-height: 1.25; white-space: pre; overflow: auto; max-height: 560px; background: #f7f5ee; color: #1f1f1f; padding: 12px; border-radius: 6px; }
+  .constantes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .constantes input { font-family: var(--mono); }
+  .vars { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0; }
+  .vars label { display: flex; align-items: center; gap: 5px; color: var(--texto); font-size: .85rem; margin: 0; cursor: pointer; }
+  .error { color: #ffb9ad; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<main class="envolver">
+  <h1>Panel del Futuro · CHECO</h1>
+  <p class="tenue" style="max-width:85ch">El Sistema 4 de Cybersyn: un simulador de la economía chilena escrito en DYNAMO, el lenguaje de dinámica de sistemas de Jay Forrester (MIT). Ron Anderton y P. Williams lo programaron en Londres en DYNAMOP; el equipo CHECO de CORFO, dirigido por Mario Grandi, lo adaptó con datos chilenos. En la Sala iba a tener un panel con piezas magnéticas para «jugar» con las políticas.</p>
+  <div class="fut">
+    <div class="col">
+      <div class="tarjeta">
+        <div class="fila">
+          <div class="crece"><label for="modelo">Modelo</label><select id="modelo"></select></div>
+          <button class="boton primario" id="correr" style="align-self:flex-end">▶ Correr</button>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="cyber" checked> Inyectar el rendimiento que midió hoy Cyberstride (constante CYBER): el «sueño no cumplido» de Beer</label>
+        <h3 style="margin-top:12px">Constantes (políticas)</h3>
+        <div class="constantes" id="constantes"></div>
+      </div>
+      <div class="tarjeta">
+        <label for="fuente">Ecuaciones DYNAMO</label>
+        <textarea id="fuente" spellcheck="false"></textarea>
+        <details style="margin-top:10px"><summary>Cómo se escribe DYNAMO</summary>
+          <p class="tenue" style="margin-top:8px">Cada línea empieza con su tipo: <b>L</b> nivel (una existencia que se acumula), <b>R</b> tasa (un flujo por unidad de tiempo), <b>A</b> auxiliar, <b>C</b> constante, <b>N</b> valor inicial, <b>T</b> tabla. Los sufijos marcan el tiempo: <span class="mono">.J</span> el instante anterior, <span class="mono">.K</span> el actual, <span class="mono">.JK</span> y <span class="mono">.KL</span> los intervalos. <span class="mono">(DT)(X)</span> es una multiplicación. Ejemplo: <span class="mono">L STB.K=STB.J+(DT)(PRO.JK-R22.JK)</span>. Funciones: TABLE, TABHL, CLIP, SWITCH, MAX, MIN, STEP, RAMP, PULSE, SMOOTH, DELAY1, DELAY3, NOISE.</p>
+        </details>
+      </div>
+    </div>
+    <div class="col">
+      <div class="tarjeta">
+        <h2 id="titulo">Resultado</h2>
+        <div class="vars" id="vars"></div>
+        <div id="grafico"></div>
+        <div id="errores"></div>
+      </div>
+      <div class="tarjeta"><h3>Salida de la impresora de línea</h3><div class="impresora" id="plot"></div></div>
+      <div class="tarjeta"><h3>Tabla</h3><div class="impresora" id="print"></div></div>
+    </div>
+  </div>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+let modelos = [], res = null, visibles = new Set(), ajustes = {};
+const COLORES = ['#f07f22', '#57a3ef', '#e8432f', '#5db56b', '#f3c64f', '#c88ae0', '#7fd6d0', '#e9e4da', '#ff8fb1', '#a3b86c'];
+
+function constantesDe(fuente) {
+  const out = [];
+  fuente.toUpperCase().split('\n').forEach(l => {
+    const m = l.match(/^\s*C\s+(.+)$/); if (!m) return;
+    let resto = m[1]; const i = resto.search(/\s{2,}/); const nota = i >= 0 ? resto.slice(i).trim() : ''; if (i >= 0) resto = resto.slice(0, i);
+    resto.replace(/\s/g, '').split('/').forEach(p => { const [k, v] = p.split('='); if (k && v && !isNaN(+v)) out.push({ k, v: +v, nota }); });
+  });
+  return out;
+}
+
+function pintarConstantes() {
+  const c = $('#constantes'); c.innerHTML = '';
+  constantesDe($('#fuente').value).forEach(({ k, v, nota }) => {
+    const inp = el('input', { type: 'number', id: 'c-' + k, value: ajustes[k] ?? v, step: 'any', title: nota, onchange: e => { ajustes[k] = +e.target.value; correr(); } });
+    c.append(el('div', null, el('label', { for: 'c-' + k, title: nota }, k + (nota ? ' · ' + nota.toLowerCase() : '')), inp));
+  });
+}
+
+async function correr() {
+  $('#errores').innerHTML = '';
+  try {
+    const aj = {};
+    constantesDe($('#fuente').value).forEach(({ k }) => { if (ajustes[k] != null) aj[k] = ajustes[k]; });
+    res = await api('/api/dynamo/correr', { fuente: $('#fuente').value, ajustes: aj, cyber: $('#cyber').checked });
+    if (!visibles.size || ![...visibles].every(v => res.series[v])) {
+      visibles = new Set((res.plot || []).flatMap(g => g.vars.map(v => v.nombre)).slice(0, 6));
+    }
+    pintarResultado();
+  } catch (e) {
+    $('#errores').append(el('p', { class: 'error' }, e.message));
+  }
+}
+
+function pintarResultado() {
+  $('#titulo').textContent = res.titulo || 'Resultado';
+  const vs = $('#vars'); vs.innerHTML = '';
+  Object.keys(res.series).forEach((n, i) => vs.append(el('label', null, el('input', { type: 'checkbox', checked: visibles.has(n), onchange: e => { e.target.checked ? visibles.add(n) : visibles.delete(n); dibujar(); } }), n)));
+  dibujar();
+  $('#plot').textContent = res.textoPlot;
+  $('#print').textContent = res.textoPrint;
+  if (res.constantes.CYBER != null && $('#cyber').checked) $('#errores').append(el('p', { class: 'tenue' }, `CYBER = ${num(res.constantes.CYBER, 4)} (rendimiento promedio de la industria según la última corrida de Cyberstride).`));
+}
+
+function dibujar() {
+  const W = 680, H = 320, m = { i: 12, d: 110, s: 12, b: 30 };
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Resultado de la simulación' });
+  const t = res.tiempos, t0 = t[0], t1 = t[t.length - 1];
+  [...visibles].forEach((n, k) => {
+    const v = res.series[n]; if (!v) return;
+    const lo = Math.min(...v), hi = Math.max(...v), r = (hi - lo) || 1;
+    const c = COLORES[k % COLORES.length];
+    s.append(svg('polyline', { points: v.map((x, i) => `${(m.i + (t[i] - t0) / (t1 - t0) * (W - m.i - m.d)).toFixed(1)},${(m.s + (1 - (x - lo) / r) * (H - m.s - m.b)).toFixed(1)}`).join(' '), fill: 'none', stroke: c, 'stroke-width': 2.2 }));
+    s.append(svg('text', { x: W - m.d + 8, y: 20 + k * 30, fill: c, 'font-size': 13, 'font-weight': 700 }, n));
+    s.append(svg('text', { x: W - m.d + 8, y: 34 + k * 30, fill: '#a99c8b', 'font-size': 10.5 }, `${num(lo, 1)} – ${num(hi, 1)}`));
+  });
+  for (let k = 0; k <= 5; k++) {
+    const x = m.i + k / 5 * (W - m.i - m.d), tv = t0 + (t1 - t0) * k / 5;
+    s.append(svg('line', { x1: x, x2: x, y1: m.s, y2: H - m.b, stroke: '#2b2622' }));
+    s.append(svg('text', { x, y: H - 10, fill: '#a99c8b', 'font-size': 11, 'text-anchor': 'middle' }, num(tv, 1)));
+  }
+  s.append(svg('text', { x: m.i, y: H - 0, fill: '#786c5e', 'font-size': 10 }, 'cada curva en su propia escala (mínimo y máximo a la derecha)'));
+  $('#grafico').replaceChildren(s);
+}
+
+async function iniciar() {
+  modelos = await obtener('/api/dynamo/modelos');
+  const sel = $('#modelo');
+  modelos.forEach(m => sel.append(el('option', { value: m.id }, m.titulo)));
+  const ultimo = recuperar('modelo', modelos[0].id);
+  sel.value = modelos.some(m => m.id === ultimo) ? ultimo : modelos[0].id;
+  const cargar = () => { const m = modelos.find(x => x.id === sel.value); $('#fuente').value = recuperar('fuente.' + m.id, m.texto); ajustes = {}; visibles.clear(); pintarConstantes(); correr(); guardar('modelo', m.id); };
+  sel.onchange = cargar;
+  $('#correr').onclick = () => { guardar('fuente.' + sel.value, $('#fuente').value); pintarConstantes(); correr(); };
+  $('#cyber').onchange = correr;
+  cargar();
+  const restaurar = el('button', { class: 'boton chico', style: { marginTop: '8px' }, onclick: () => { const m = modelos.find(x => x.id === sel.value); $('#fuente').value = m.texto; guardar('fuente.' + m.id, m.texto); ajustes = {}; pintarConstantes(); correr(); } }, 'Volver al modelo original');
+  $('#fuente').after(restaurar);
+}
+
+barra('Panel del Futuro');
+alEvento(t => { if (t === 'ecom' && $('#cyber').checked && res) correr(); });
+conectar('futuro').then(iniciar).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

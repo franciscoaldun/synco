@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computador de ECOM · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .consola { background: linear-gradient(#24364a, #1a2838); border-radius: 12px; padding: 16px; border: 1px solid #36506b; color: #dce7f2; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .luces { display: grid; grid-template-columns: repeat(32, 9px); gap: 4px; }
+  .luces i { width: 9px; height: 9px; border-radius: 50%; background: #3b2a12; display: block; }
+  .luces i.on { background: #ffb54a; box-shadow: 0 0 6px #ffb54a; }
+  .pestanas { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 10px; }
+  .pestanas button { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 7px 12px; cursor: pointer; color: var(--tenue); font-weight: 600; }
+  .pestanas button.activa { background: var(--azul); color: #06121f; border-color: var(--azul); }
+  .listado-jcl { font-family: var(--mono); font-size: 12.5px; white-space: pre; overflow-x: auto; background: #0b0f14; color: #b9d5ef; padding: 14px; border-radius: 8px; line-height: 1.45; }
+  .listado-jcl .rec { color: #7f93a8; }
+  .tarjeta-ibm { background: #f3e7c5; color: #3a2f19; border-radius: 4px 14px 4px 4px; padding: 6px 8px 8px; margin: 10px 0; overflow-x: auto; box-shadow: var(--sombra); position: relative; }
+  .tarjeta-ibm .impreso { font-family: var(--mono); font-size: 11px; white-space: pre; letter-spacing: calc(9px - 0.6em); height: 14px; margin-left: 11px; }
+  .tarjeta-ibm svg { display: block; }
+  .mapa-mem { display: flex; height: 46px; border-radius: 6px; overflow: hidden; border: 1px solid var(--borde); }
+  .mapa-mem div { display: grid; place-items: center; font-size: .72rem; color: #111; text-align: center; padding: 2px; overflow: hidden; }
+  .hfp { display: grid; grid-template-columns: repeat(32, 1fr); gap: 2px; font-family: var(--mono); font-size: .72rem; text-align: center; }
+  .hfp span { padding: 4px 0; border-radius: 3px; }
+</style>
+</head>
+<body>
+<main class="envolver">
+  <h1>ECOM · IBM System/360 modelo 50H</h1>
+  <div class="consola">
+    <div>
+      <div class="etiqueta" style="color:#9fb6cc">Empresa Nacional de Computación e Informática · Santiago</div>
+      <div style="font-size:1.05rem;margin-top:4px">262.144 bytes de memoria principal · ciclo de 2,0 µs · sumador de 4 bytes en 0,5 µs · discos 2314 · lectora de cinta de papel 2671 · palabras binarias de 32 bits</div>
+      <div id="estado-job" class="mono" style="margin-top:8px;color:#ffd38a"></div>
+    </div>
+    <div class="luces" id="luces" aria-hidden="true"></div>
+  </div>
+  <div class="pestanas" role="tablist" id="pestanas"></div>
+  <section id="panel"></section>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+const PESTANAS = [['log', 'Registro del trabajo'], ['jcl', 'JCL'], ['tarjetas', 'Tarjetas'], ['listados', 'Listados'], ['maestro', 'Archivo maestro'], ['historico', 'Archivo histórico'], ['memoria', 'Memoria'], ['flotante', 'Punto flotante'], ['corridas', 'Corridas']];
+let pestana = recuperar('ecomPestana', 'listados'), maestro = null, ixSel = null;
+
+function pintarPestanas() {
+  const p = $('#pestanas'); p.innerHTML = '';
+  PESTANAS.forEach(([id, t]) => p.append(el('button', { role: 'tab', 'aria-selected': pestana === id, class: pestana === id ? 'activa' : '', onclick: () => { pestana = id; guardar('ecomPestana', id); pintar(); } }, t)));
+}
+
+// --- Hollerith (perforador IBM 029) ---
+function perforaciones(ch) {
+  if (/[0-9]/.test(ch)) return [ch];
+  const i = 'ABCDEFGHI'.indexOf(ch); if (i >= 0) return ['12', String(i + 1)];
+  const j = 'JKLMNOPQR'.indexOf(ch); if (j >= 0) return ['11', String(j + 1)];
+  const k = 'STUVWXYZ'.indexOf(ch); if (k >= 0) return ['0', String(k + 2)];
+  return { '-': ['11'], '&': ['12'], '/': ['0', '1'], '.': ['12', '3', '8'], ',': ['0', '3', '8'], '(': ['12', '5', '8'], ')': ['11', '5', '8'], '+': ['12', '6', '8'], '*': ['11', '4', '8'], '=': ['6', '8'], "'": ['5', '8'], ':': ['2', '8'] }[ch] || [];
+}
+const FILAS = ['12', '11', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+function tarjetaSVG(texto) {
+  const W = 80 * 9 + 20, H = 12 * 13 + 10;
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': 'Tarjeta perforada: ' + texto.trim() });
+  for (let c = 0; c < 80; c++) {
+    const p = perforaciones(texto[c] || ' ');
+    FILAS.forEach((f, r) => {
+      const x = 10 + c * 9, y = 5 + r * 13;
+      if (p.includes(f)) s.append(svg('rect', { x: x + 1.5, y: y + 1, width: 5, height: 10, fill: '#1b1714', rx: 1 }));
+      else if (r >= 2) s.append(svg('text', { x: x + 4, y: y + 9, 'font-size': 7, 'text-anchor': 'middle', fill: '#a8946a' }, f));
+    });
+  }
+  return s;
+}
+
+// --- punto flotante hexadecimal del 360 (igual que en el servidor) ---
+function aHFP(x) {
+  if (x === 0 || isNaN(x)) return { palabra: 0, signo: 0, car: 0, frac: 0 };
+  let s = 0; if (x < 0) { s = 1; x = -x; }
+  let e = 0;
+  while (x >= 1) { x /= 16; e++; }
+  while (x < 1 / 16) { x *= 16; e--; }
+  const frac = Math.floor(x * 16777216), car = e + 64;
+  return { palabra: (s << 31 >>> 0) + car * 16777216 + frac, signo: s, car, frac };
+}
+function deHFP(h) { return (h.signo ? -1 : 1) * h.frac / 16777216 * Math.pow(16, h.car - 64); }
+const hex8 = n => (n >>> 0).toString(16).toUpperCase().padStart(8, '0');
+
+function lucesAleatorias(intensidad) {
+  const l = $('#luces');
+  if (!l.children.length) for (let i = 0; i < 128; i++) l.append(el('i'));
+  Array.from(l.children).forEach(i => i.classList.toggle('on', Math.random() < intensidad));
+}
+
+async function pintar() {
+  pintarPestanas();
+  const u = E.ecom.ultima;
+  $('#estado-job').textContent = u ? (u.dia ? `Último trabajo: CYBERDIA del ${u.fecha.slice(0, 2)}-${u.fecha.slice(2, 4)}-${u.fecha.slice(4)} · ${u.tarjetas.length} tarjetas · código de condición ${u.ccValid} · ${u.stats ? 'STATS ejecutado' : 'STATS NO ejecutado'} · CPU ${num(u.cpu, 2)} s` : 'Archivos creados (PRO40). Esperando el primer trabajo diario a las 18:00.') : '';
+  const p = $('#panel'); p.innerHTML = '';
+  switch (pestana) {
+    case 'log':
+      p.append(el('p', { class: 'tenue' }, 'Mensajes del sistema operativo OS/360 para el trabajo del día. VALID corre PRASMY01 y PRO10; STATS corre PRO20. Con COND=(7,LT), si VALID termina con código 8 el paso STATS no se ejecuta y ese día no hay análisis para nadie.'),
+        el('div', { class: 'listado-jcl' }, (u?.log || []).join('\n') || 'Sin trabajos todavía.'));
+      if (u?.mensajes?.length) p.append(el('h3', { style: { marginTop: '14px' } }, 'Mensajes de PRO10'), el('div', { class: 'listado-jcl' }, u.mensajes.join('\n')));
+      break;
+    case 'jcl': {
+      const d = el('div', { class: 'listado-jcl' });
+      (u?.jcl || []).forEach(l => d.append(el('div', { class: l.includes('RECONSTRUIDA') ? 'rec' : '' }, l)));
+      p.append(el('p', { class: 'tenue' }, 'Procedimiento en línea del proceso normal diario, copiado del «Manual de procesos computacionales» de ECOM (archivo Beer, caja 57). Las líneas en gris son reconstrucción: el volumen de disco se llamaba BIER01.'), d);
+      break;
+    }
+    case 'tarjetas': {
+      p.append(el('p', { class: 'tenue' }, 'La cinta de papel que llegaba por télex se leía en la lectora 2671 y los datos se pasaban a tarjetas: TR 01 (actualidad), TR 02 (nueva capacidad) y TR 03 (nueva potencialidad), en ese orden estricto. Primeras tarjetas del último trabajo:'));
+      (u?.tarjetas || []).slice(0, 8).forEach(t => p.append(el('div', { class: 'tarjeta-ibm' }, el('div', { class: 'impreso' }, t.texto), tarjetaSVG(t.texto))));
+      if (!(u?.tarjetas || []).length) p.append(el('p', null, 'Sin tarjetas todavía.'));
+      break;
+    }
+    case 'listados':
+      if (!u?.listados?.length) { p.append(el('p', null, 'Sin listados todavía.')); break; }
+      p.append(el('p', { class: 'tenue' }, 'Salidas de la impresora en formularios continuos de 132 columnas (registros FBA de 133 bytes: el primero es el control de carro ASA). El informe algedónico-taxonómico sólo se imprime si hay anomalías.'));
+      u.listados.forEach(l => {
+        const lineas = [];
+        l.lineas.forEach(x => { const cc = x[0], t = x.slice(1); if (cc === '0') lineas.push(''); if (cc === '1' && lineas.length) lineas.push('', '- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -', ''); lineas.push(t); });
+        p.append(el('h3', { style: { marginTop: '16px' } }, l.titulo), el('div', { class: 'listado' }, lineas.join('\n')));
+      });
+      break;
+    case 'maestro': {
+      if (!maestro) maestro = await obtener('/api/ecom/maestro');
+      p.append(el('p', { class: 'tenue' }, 'USER.CYBER.MASTER: un registro por proceso. Cada número está guardado como REAL*4 del 360 (punto flotante hexadecimal de 32 bits). SYSVAR(44) a SYSVAR(55) son los factores estacionales y SYSVAR(56) marca los índices «al revés» (documentado); el resto de la distribución es reconstrucción.'));
+      const t = el('table', null, el('thead', null, el('tr', null, ['Código (EBCDIC)', 'CAP', 'POT', 'V base', 'Banda', 'Media orig.', 'N'].map(x => el('th', null, x)))));
+      const tb = el('tbody');
+      maestro.forEach(r => tb.append(el('tr', { style: { cursor: 'pointer' }, onclick: () => { ixSel = r.codigo; pintar(); } },
+        el('td', null, el('b', { class: 'mono' }, r.codigo), el('div', { class: 'mono tenue', style: { fontSize: '.7rem', wordBreak: 'break-all' } }, r.ebcdic)),
+        el('td', { class: 'mono' }, num(r.cap, 2), el('div', { class: 'tenue' }, r.hex ? hex8(aHFP(r.cap).palabra) : '')),
+        el('td', { class: 'mono' }, num(r.pot, 2)), el('td', { class: 'mono' }, r.sysvar[24].toExponential(2)),
+        el('td', { class: 'mono' }, `${num(r.sysvar[25], 3)}–${num(r.sysvar[27], 3)}`), el('td', { class: 'mono' }, num(r.sysvar[28], 4)), el('td', { class: 'mono' }, r.sysvar[29]))));
+      t.append(tb);
+      p.append(el('div', { class: 'tabla-scroll' }, t));
+      const r = maestro.find(x => x.codigo === ixSel) || maestro[0];
+      const dump = r.hex.map((h, i) => `SYSVAR(${String(i + 1).padStart(2)}) ${h}  ${String(r.sysvar[i].toPrecision(7)).padStart(14)}`).join('\n');
+      p.append(el('h3', { style: { marginTop: '14px' } }, 'Volcado de ' + r.codigo), el('div', { class: 'listado-jcl', style: { maxHeight: '360px' } }, dump));
+      break;
+    }
+    case 'historico': {
+      ixSel = ixSel || E.indices[0].codigo;
+      const sel = el('select', { onchange: e => { ixSel = e.target.value; pintar(); } }, E.indices.map(i => el('option', { value: i.codigo, selected: i.codigo === ixSel }, `${i.codigo} · ${i.nombre}`)));
+      const h = await obtener('/api/indice/' + ixSel);
+      const t = el('table', null, el('thead', null, el('tr', null, ['Fecha', 'ACT', 'P', 'L', 'Rend.', 'Sin cambio', 'Escalón', 'Pendiente', 'Transit.', 'Pronóstico'].map(x => el('th', null, x)))));
+      const tb = el('tbody');
+      h.historia.slice(-40).reverse().forEach(r => tb.append(el('tr', null, el('td', { class: 'mono' }, r.fecha + (r.previo ? ' *' : '')), el('td', { class: 'mono' }, num(r.act, 2)),
+        ...[r.p, r.l, r.perf].map(v => el('td', { class: 'mono' }, num(v, 4))), ...r.prob.map(v => el('td', { class: 'mono' }, num(v, 3))), el('td', { class: 'mono' }, num(r.pron, 4)))));
+      t.append(tb);
+      p.append(el('p', { class: 'tenue' }, 'USER.CYBER.HISTORY: ACT, P y rendimiento de cada proceso por fecha de proceso, más las probabilidades del filtro de Harrison y Stevens. (*) análisis previo de tres meses.'),
+        sel, el('a', { class: 'boton chico', href: '/api/export/historico.csv', style: { margin: '10px 0' } }, 'Descargar todo en CSV'), el('div', { class: 'tabla-scroll' }, t));
+      break;
+    }
+    case 'memoria': {
+      const total = 262144, colores = ['#8aa6c1', '#a9b9c9', '#c9c2a9', '#f3c64f', '#b8c7a9'];
+      const m = el('div', { class: 'mapa-mem' });
+      E.ecom.memoria.forEach((b, i) => m.append(el('div', { style: { width: `${(b.hasta - b.desde) / total * 100}%`, background: colores[i % colores.length] }, title: b.nombre }, `${Math.round((b.hasta - b.desde) / 1024)} K`)));
+      p.append(el('p', { class: 'tenue' }, 'Mapa ilustrativo de los 256 KB del 360/50H bajo OS/360 MVT mientras corre CYBERDIA (el registro del trabajo dice MAIN 120K para PRO20). Cada palabra tiene 32 bits: 4 bytes de 8 bits.'), m);
+      p.append(el('ul', null, E.ecom.memoria.map(b => el('li', null, `${hex8(b.desde).slice(2)}–${hex8(b.hasta - 1).slice(2)}: ${b.nombre}`))));
+      p.append(el('div', { class: 'tarjeta', style: { marginTop: '14px' } }, el('h3', null, '¿Binario o ternario?'),
+        el('p', null, 'Binario. El IBM 360 es una máquina binaria de bytes de 8 bits y palabras de 32 bits; los caracteres se guardan en EBCDIC y los números reales en punto flotante hexadecimal (base 16, pero almacenado en bits). El télex usaba 5 bits por carácter. Los computadores ternarios de la época (Setun, Setun-70) eran soviéticos y experimentales; en Chile no hubo ninguno.')));
+      break;
+    }
+    case 'flotante': {
+      const inp = el('input', { type: 'text', id: 'num', value: recuperar('hfp', '25.4'), inputmode: 'decimal' });
+      const out = el('div');
+      const calc = () => {
+        guardar('hfp', inp.value);
+        const x = parseFloat(inp.value.replace(',', '.'));
+        out.innerHTML = '';
+        if (isNaN(x)) return;
+        const h = aHFP(x), v = deHFP(h);
+        const bits = (h.palabra >>> 0).toString(2).padStart(32, '0');
+        const fila = el('div', { class: 'hfp' });
+        bits.split('').forEach((b, i) => fila.append(el('span', { style: { background: i === 0 ? '#5a2a2a' : i < 8 ? '#2a3a5a' : '#2a4a32' } }, b)));
+        out.append(fila,
+          el('p', { style: { marginTop: '10px' } }, el('span', { class: 'chip', style: { background: '#5a2a2a' } }, `signo ${h.signo}`), ' ', el('span', { class: 'chip', style: { background: '#2a3a5a' } }, `característica ${h.car} → 16^${h.car - 64}`), ' ', el('span', { class: 'chip', style: { background: '#2a4a32' } }, `fracción 0x${h.frac.toString(16).toUpperCase().padStart(6, '0')}`)),
+          el('p', null, `Palabra en memoria: `, el('b', { class: 'mono' }, hex8(h.palabra)), ` · valor guardado: `, el('b', { class: 'mono' }, v.toPrecision(12))),
+          el('p', null, 'Impreso por Fortran con FORMAT(F12.5): ', el('b', { class: 'mono', style: { color: 'var(--naranja2)' } }, v.toFixed(5))));
+      };
+      inp.addEventListener('input', calc);
+      p.append(el('p', null, 'El 360 guardaba los REAL*4 con una fracción de 6 dígitos hexadecimales y truncaba lo que no cabía. Por eso, en el listado de la suite temporal del 21 de enero de 1972, el 25.4 de Inforsa aparece como ', el('b', { class: 'mono' }, '25.39999'), ' y el 11656.9 de Textil Progreso como ', el('b', { class: 'mono' }, '11656.89844'), '. Pruebe:'),
+        el('label', { for: 'num' }, 'Número'), inp, out);
+      calc();
+      break;
+    }
+    case 'corridas': {
+      const t = el('table', null, el('thead', null, el('tr', null, ['Día', 'Fecha', 'Tarjetas', 'Código', 'STATS', 'CPU (s)', 'Excepciones'].map(x => el('th', null, x)))));
+      const tb = el('tbody');
+      E.ecom.previas.slice().reverse().forEach(c => tb.append(el('tr', null, el('td', null, c.dia), el('td', { class: 'mono' }, c.fecha), el('td', null, c.tr), el('td', null, c.cc ? el('span', { class: 'chip rojo' }, c.cc) : '0'), el('td', null, c.stats ? 'sí' : el('b', { style: { color: 'var(--rojo)' } }, 'no')), el('td', { class: 'mono' }, num(c.cpu, 2)), el('td', null, c.excepciones))));
+      t.append(tb);
+      p.append(el('p', { class: 'tenue' }, 'Harrison y Stevens calcularon 1/20 de segundo de CPU en un IBM 360/50 por cada actualización de su modelo de cuatro estados: ese es el costo que se suma aquí por cada índice.'), el('div', { class: 'tabla-scroll' }, t));
+      break;
+    }
+  }
+}
+
+barra('Computador de ECOM');
+let corriendo = 0;
+setInterval(() => { if (E) lucesAleatorias(E.reloj.fase === 'ecom' ? 0.55 : 0.08); }, 180);
+alEvento(t => { if (t === 'ecom' || t === 'estado') { maestro = null; pintar(); } });
+conectar('ecom').then(pintar).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

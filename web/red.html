@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red Cybernet · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .red { display: grid; grid-template-columns: minmax(300px, 520px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 960px) { .red { grid-template-columns: 1fr; } }
+  #mapa { width: 100%; height: auto; background: #0e0c0b; border-radius: var(--radio); border: 1px solid var(--borde); }
+  .lista { max-height: 420px; overflow-y: auto; }
+  .lista tr { cursor: pointer; }
+  .lista tr:hover td { background: #1a1613; }
+  .lista tr.sel td { background: #2a2018; }
+  .ita2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px; font-family: var(--mono); font-size: .8rem; }
+  .ita2 div { background: #120f0d; border: 1px solid var(--borde); border-radius: 4px; padding: 3px 6px; display: flex; justify-content: space-between; gap: 6px; }
+  .ita2 b { color: var(--naranja2); }
+</style>
+</head>
+<body>
+<main class="envolver">
+  <h1>Cybernet</h1>
+  <p class="tenue" style="max-width:80ch">Teleimpresores Siemens T-100 a 50 baudios en cada fábrica, conectados a la red pública de télex: una central LM Ericsson ARM 201/2 en Santiago, dos ARM 503 en Valparaíso y Concepción y una docena de terminales ARB 11 (enlaces de radio al norte y al extremo sur). Todos los días hábiles, a partir de las 15:00, las fábricas llamaban a la central de tráfico de CORFO (40750), que revisaba, archivaba y reenviaba todo a ECOM (40506).</p>
+  <div class="red">
+    <div class="col">
+      <svg id="mapa" viewBox="0 0 520 920" role="img" aria-label="Mapa esquemático de la red de télex con los mensajes en curso"></svg>
+      <div class="tarjeta">
+        <h3>Contadores de hoy</h3>
+        <div id="contadores" class="fila"></div>
+      </div>
+    </div>
+    <div class="col">
+      <section class="tarjeta">
+        <h2>Tráfico en la red</h2>
+        <div class="lista tabla-scroll"><table><thead><tr><th>Hora</th><th>De → A</th><th>Tipo</th><th>Car.</th><th>Estado</th></tr></thead><tbody id="tbody"></tbody></table></div>
+      </section>
+      <section class="tarjeta" id="detalle"><h2>Elija un télex</h2><p class="tenue">Al elegirlo verá el texto impreso y la cinta perforada en código ITA2.</p></section>
+      <section class="tarjeta">
+        <h2>Código ITA2 (Baudot-Murray)</h2>
+        <p class="tenue">Cinco bits por carácter: 32 combinaciones que alcanzan para letras y cifras gracias a los cambios LETRAS (11111) y CIFRAS (11011). Cada carácter ocupa 150 ms de línea: 1 bit de partida, 5 de datos y 1,5 de parada.</p>
+        <div class="ita2" id="ita2"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+const PUNTOS_LAT = [[-18, 30], [-24, 130], [-30, 220], [-32.5, 268], [-34, 470], [-35.5, 545], [-37.6, 700], [-42, 790], [-53.5, 890]];
+function yLat(lat) {
+  for (let i = 0; i < PUNTOS_LAT.length - 1; i++) {
+    const [a, ya] = PUNTOS_LAT[i], [b, yb] = PUNTOS_LAT[i + 1];
+    if (lat <= a && lat >= b) return ya + (a - lat) / (a - b) * (yb - ya);
+  }
+  return lat > -18 ? 30 : 890;
+}
+let posiciones = {}, seleccion = null, vuelos = new Map();
+
+function nodos() {
+  posiciones = {};
+  E.centrales.forEach(c => posiciones['c:' + c.id] = { x: 250, y: yLat(c.lat), nombre: c.nombre, tipo: c.tipo });
+  // abonados de Santiago sin fábrica: CORFO, ECOM y comités
+  const scl = posiciones['c:SCL'];
+  posiciones['t:40750'] = { x: 150, y: scl.y - 46, nombre: 'CORFO 40750', esp: true };
+  posiciones['t:40506'] = { x: 150, y: scl.y - 4, nombre: 'ECOM 40506', esp: true };
+  E.sectores.forEach((s, i) => posiciones['t:' + s.telex] = { x: 150, y: scl.y + 40 + i * 19, nombre: 'Comité ' + s.nombre.split(' ')[0].toLowerCase(), esp: true, chico: true });
+  // fábricas en una columna a la derecha, sin encimarse
+  const fs = E.fabricas.slice().sort((a, b) => b.lat - a.lat);
+  let ultimoY = -100;
+  fs.forEach(f => {
+    let y = Math.max(yLat(f.lat), ultimoY + 22);
+    ultimoY = y;
+    posiciones['t:' + f.telex] = { x: 370, y, nombre: f.corto, central: f.central, color: sector(f.sector).color, fab: true };
+  });
+}
+
+function pintarMapa() {
+  nodos();
+  const s = $('#mapa'); s.innerHTML = '';
+  // costa esquemática
+  s.append(svg('path', { d: 'M265 14 C 240 200, 235 420, 255 600 C 262 700, 240 800, 280 905', fill: 'none', stroke: '#2b2622', 'stroke-width': 46, 'stroke-linecap': 'round', opacity: .6 }));
+  E.centrales.forEach(c => {
+    if (!c.padre) return;
+    const a = posiciones['c:' + c.id], b = posiciones['c:' + c.padre];
+    s.append(svg('path', { d: `M${a.x} ${a.y} C ${a.x - 40} ${a.y}, ${b.x - 40} ${b.y}, ${b.x} ${b.y}`, fill: 'none', stroke: c.radio ? '#57a3ef' : '#6b5f4b', 'stroke-width': 2, 'stroke-dasharray': c.radio ? '5 4' : null }));
+  });
+  Object.entries(posiciones).forEach(([k, p]) => {
+    if (k.startsWith('t:')) {
+      const cent = p.fab ? posiciones['c:' + p.central] : posiciones['c:SCL'];
+      s.append(svg('line', { x1: p.x, y1: p.y, x2: cent.x, y2: cent.y, stroke: '#3d342c', 'stroke-width': 1 }));
+    }
+  });
+  Object.entries(posiciones).forEach(([k, p]) => {
+    if (k.startsWith('c:')) {
+      const g = svg('g', null, svg('rect', { x: p.x - 9, y: p.y - 9, width: 18, height: 18, fill: p.tipo.startsWith('ARM') ? '#f07f22' : '#786c5e', rx: 2 }),
+        svg('text', { x: p.x - 16, y: p.y + 4, 'text-anchor': 'end', fill: '#d8cfbf', 'font-size': 12 }, `${p.nombre}`),
+        svg('text', { x: p.x - 16, y: p.y + 17, 'text-anchor': 'end', fill: '#786c5e', 'font-size': 10 }, p.tipo));
+      s.append(g);
+    } else {
+      s.append(svg('circle', { cx: p.x, cy: p.y, r: p.esp ? 6 : 5, fill: p.color || (p.esp ? '#f3c64f' : '#ccc') }));
+      s.append(svg('text', { x: p.fab ? p.x + 10 : 8, y: p.y + 4, 'text-anchor': 'start', fill: p.esp ? '#f3c64f' : '#d8cfbf', 'font-size': p.chico ? 10.5 : 11.5 }, p.nombre));
+    }
+  });
+  s.append(svg('g', { id: 'vuelos' }));
+  s.append(svg('text', { x: 10, y: 910, fill: '#786c5e', 'font-size': 10 }, 'Esquema, no a escala. Línea discontinua azul: enlace de radio.'));
+}
+
+function rutaPuntos(m) {
+  const pts = [];
+  const ini = posiciones['t:' + m.de], fin = posiciones['t:' + m.a];
+  if (ini) pts.push(ini);
+  (m.ruta || []).forEach(c => posiciones['c:' + c] && pts.push(posiciones['c:' + c]));
+  if (fin) pts.push(fin);
+  return pts;
+}
+
+function animar() {
+  const g = $('#vuelos');
+  if (g) {
+    g.innerHTML = '';
+    const ahora = performance.now();
+    for (const [id, v] of vuelos) {
+      const t = (ahora - v.desde) / Math.max(400, v.dur);
+      if (t >= 1) { vuelos.delete(id); continue; }
+      const pts = v.pts; if (pts.length < 2) continue;
+      const k = t * (pts.length - 1), i = Math.floor(k), f = k - i;
+      const a = pts[i], b = pts[Math.min(i + 1, pts.length - 1)];
+      const color = { indices: '#f07f22', reenvio: '#f3c64f', algedonico: '#e8432f', directiva: '#5db56b', correccion: '#57a3ef' }[v.tipo] || '#ccc';
+      g.append(svg('polyline', { points: pts.map(p => `${p.x},${p.y}`).join(' '), fill: 'none', stroke: color, 'stroke-width': 1.2, opacity: .35 }));
+      g.append(svg('circle', { cx: a.x + (b.x - a.x) * f, cy: a.y + (b.y - a.y) * f, r: 5, fill: color }));
+    }
+  }
+  requestAnimationFrame(animar);
+}
+
+function nombreAbonado(n) {
+  if (n === '40750') return 'CORFO';
+  if (n === '40506') return 'ECOM';
+  const f = E.fabricas.find(x => x.telex === n); if (f) return f.corto;
+  const s = E.sectores.find(x => x.telex === n); if (s) return 'Comité ' + s.nombre.toLowerCase();
+  return n;
+}
+
+function pintarLista() {
+  const tb = $('#tbody'); tb.innerHTML = '';
+  E.telex.slice(-80).reverse().forEach(m => tb.append(el('tr', { class: seleccion === m.id ? 'sel' : '', onclick: () => { seleccion = m.id; pintarDetalle(); pintarLista(); } },
+    el('td', { class: 'mono' }, `${m.hora}`), el('td', null, `${nombreAbonado(m.de)} → ${nombreAbonado(m.a)}`),
+    el('td', null, m.tipo), el('td', { class: 'mono' }, m.caracteres),
+    el('td', null, m.estado === 'transmitiendo' ? el('span', { class: 'chip naranja' }, 'en línea') : el('span', { class: 'tenue' }, 'entregado')))));
+  const hoy = E.telex.filter(m => m.dia === E.reloj.dia);
+  const car = hoy.reduce((a, m) => a + m.caracteres, 0);
+  $('#contadores').innerHTML = '';
+  $('#contadores').append(el('span', { class: 'chip' }, `${hoy.length} télex`), el('span', { class: 'chip' }, `${num(car)} caracteres`),
+    el('span', { class: 'chip' }, `${num(car * 7.5)} bits en la línea`), el('span', { class: 'chip' }, `${num(car * 0.15 / 60, 1)} min a 50 baudios`));
+}
+
+function pintarDetalle() {
+  const m = E.telex.find(x => x.id === seleccion); if (!m) return;
+  const tramas = ITA2.codificar(m.texto);
+  const d = $('#detalle'); d.innerHTML = '';
+  d.append(el('h2', null, `Télex ${m.id} · ${nombreAbonado(m.de)} → ${nombreAbonado(m.a)}`),
+    el('p', { class: 'tenue' }, `Día ${m.dia} a las ${m.hora} · ${m.caracteres} caracteres ITA2 · ${(m.caracteres * 0.15).toFixed(1)} s a 50 baudios · ruta: ${(m.ruta || []).join(' → ')}`),
+    el('div', { class: 'papel', style: { maxHeight: '320px', overflowY: 'auto' } }, m.texto),
+    el('h3', { style: { marginTop: '12px' } }, 'Cinta perforada (los últimos 200 caracteres)'),
+    (() => { const c = el('div', { class: 'cinta' }); dibujarCinta(c, tramas, 200); return c; })());
+}
+
+function pintarITA2() {
+  const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const C = { A: '-', B: '?', C: ':', D: 'WRU', E: '3', F: '·', G: '·', H: '·', I: '8', J: 'BELL', K: '(', L: ')', M: '.', N: ',', O: '9', P: '0', Q: '1', R: '4', S: "'", T: '5', U: '7', V: '=', W: '2', X: '/', Y: '6', Z: '+' };
+  const c = $('#ita2');
+  L.forEach(l => { const b = ITA2.codificar(l).slice(-1)[0].b; c.append(el('div', null, el('span', { class: 'mono' }, b.replace(/1/g, '●').replace(/0/g, '○')), el('b', null, l), el('span', null, C[l]))); });
+  [['CR', '00010'], ['LF', '01000'], ['espacio', '00100'], ['LETRAS', '11111'], ['CIFRAS', '11011']].forEach(([n, b]) => c.append(el('div', null, el('span', { class: 'mono' }, b.replace(/1/g, '●').replace(/0/g, '○')), el('b', null, n))));
+}
+
+barra('Red Cybernet');
+pintarITA2();
+alEvento((t, d) => {
+  if (t === 'estado') { pintarMapa(); pintarLista(); E.telex.filter(m => m.estado === 'transmitiendo').forEach(m => vuelos.set(m.id, { desde: performance.now() - Math.max(0, Date.now() - m.inicio), dur: m.duracionMs, pts: rutaPuntos(m), tipo: m.tipo })); }
+  if (t === 'telex') { vuelos.set(d.id, { desde: performance.now(), dur: d.duracionMs, pts: rutaPuntos(d), tipo: d.tipo }); pintarLista(); }
+  if (t === 'telexFin') pintarLista();
+  if (t === 'fabricas') pintarMapa();
+});
+conectar('red').then(() => requestAnimationFrame(animar)).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

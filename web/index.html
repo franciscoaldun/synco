@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SYNCO · Emulador de Cybersyn</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,2 36,11 36,29 20,38 4,29 4,11' fill='%2313100e' stroke='%23f07f22' stroke-width='3'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%23f1e9dc'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  .portada { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: center; padding: 26px 0 10px; }
+  .portada h1 { font-size: clamp(2rem, 4.6vw, 3.3rem); margin-bottom: .2em; }
+  .portada h1 em { font-style: normal; color: var(--naranja); }
+  .lema { font-size: 1.1rem; color: var(--tenue); max-width: 46ch; }
+  .sillas { width: 100%; max-width: 420px; justify-self: center; }
+  .roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 18px; }
+  .rol { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--texto); transition: border-color .15s, transform .15s; }
+  .rol:hover { border-color: var(--naranja); transform: translateY(-2px); }
+  .rol .icono { font-size: 1.6rem; }
+  .rol p { color: var(--tenue); font-size: .93rem; margin: 0; }
+  .rol .quien { margin-top: auto; }
+  .pasos { counter-reset: paso; display: grid; gap: 10px; padding: 0; list-style: none; }
+  .pasos li { counter-increment: paso; display: flex; gap: 12px; align-items: flex-start; }
+  .pasos li::before { content: counter(paso); flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--naranja); color: #1a0f05; font-weight: 800; display: grid; place-items: center; }
+  .qrs { display: flex; gap: 18px; flex-wrap: wrap; }
+  .qrs figure { margin: 0; text-align: center; font-size: .85rem; color: var(--tenue); }
+  .qrs figcaption { margin-top: 6px; max-width: 160px; }
+  .url { font-family: var(--mono); font-size: 1.15rem; color: var(--naranja2); word-break: break-all; }
+  @media (max-width: 800px) { .portada { grid-template-columns: 1fr; } .sillas { max-width: 300px; } }
+</style>
+</head>
+<body>
+<main class="envolver">
+  <section class="portada">
+    <div>
+      <div class="etiqueta">Chile · 1971–1973</div>
+      <h1>Proyecto <em>Cybersyn</em>, funcionando otra vez</h1>
+      <p class="lema">Un curso completo opera a la vez las fábricas del Área Social, la red de télex, el computador IBM 360 de ECOM, la Sala de Operaciones y el medidor algedónico del pueblo. Todo corre en este computador, sin internet.</p>
+      <div class="fila" style="margin-top:14px">
+        <a class="boton primario" href="/sala">Abrir la Sala de Operaciones</a>
+        <a class="boton" href="/control">Panel del docente</a>
+        <a class="boton" href="/historia">Qué fue Cybersyn</a>
+      </div>
+    </div>
+    <svg class="sillas" viewBox="0 0 400 360" role="img" aria-label="Esquema de la Sala de Operaciones: sala hexagonal con siete sillones">
+      <polygon points="200,10 380,105 380,255 200,350 20,255 20,105" fill="#1b1714" stroke="#3d342c" stroke-width="4"/>
+      <g stroke="#f1e9dc" stroke-width="6" stroke-linecap="round">
+        <line x1="236" y1="29" x2="344" y2="86"/><line x1="380" y1="140" x2="380" y2="220"/>
+        <line x1="344" y1="274" x2="236" y2="331"/><line x1="164" y1="331" x2="56" y2="274"/><line x1="20" y1="220" x2="20" y2="140"/>
+      </g>
+      <g id="sillones"></g>
+      <text x="200" y="176" text-anchor="middle" fill="#786c5e" font-size="11" letter-spacing="2">SALA DE</text><text x="200" y="192" text-anchor="middle" fill="#786c5e" font-size="11" letter-spacing="2">OPERACIONES</text>
+    </svg>
+  </section>
+
+  <section class="tarjeta" id="compartir">
+    <h2>Para los estudiantes</h2>
+    <p class="tenue">Conéctense a la misma red Wi-Fi que este computador y abran esta dirección en el celular, o escaneen un código:</p>
+    <div class="url" id="url">…</div>
+    <div class="qrs" id="qrs" style="margin-top:14px"></div>
+  </section>
+
+  <h2 style="margin-top:28px">Los puestos</h2>
+  <div class="roles" id="roles"></div>
+
+  <section class="grilla g2" style="margin-top:28px">
+    <div class="tarjeta">
+      <h2>Una clase de 45 minutos</h2>
+      <ol class="pasos">
+        <li><span>El docente proyecta la <b>Sala de Operaciones</b> y abre el <b>panel del docente</b> en este computador.</span></li>
+        <li><span>Equipos de 2 o 3 estudiantes toman una <b>fábrica</b> cada uno: leen el parte de producción, pasan los índices al formulario de ECOM y los transmiten por télex a CORFO antes de las 17:00.</span></li>
+        <li><span>Siete estudiantes se sientan en los <b>sillones</b> de la Sala y navegan las pantallas con los botones geométricos.</span></li>
+        <li><span>El resto del curso es <b>el pueblo</b>: mueven su medidor algedónico cuando el docente anuncia una política.</span></li>
+        <li><span>Cada noche ECOM corre Cyberstride. Las señales algedónicas suben de la empresa al comité, a CORFO y a la Sala si nadie las corrige.</span></li>
+      </ol>
+    </div>
+    <div class="tarjeta">
+      <h2>Qué es real y qué es reconstrucción</h2>
+      <p><b>Del archivo:</b> los códigos de 22 letras de los índices, las fórmulas de productividad, latencia y rendimiento de PRO20, los pesos de Dunsmuir para el modelo de Harrison y Stevens, el JCL del procedimiento CYBER, los números de télex de CORFO (40750) y ECOM (40506), el formato del télex de abril de 1973, el punto flotante hexadecimal del 360 y las variables de CHECO y Futuro.</p>
+      <p><b>Reconstruido:</b> las cifras de producción (simuladas), las ecuaciones completas de CHECO y Futuro, y los detalles que el archivo no conserva. <a href="/historia">Ver fuentes</a>.</p>
+    </div>
+  </section>
+  <p class="tenue" style="margin-top:24px;font-size:.85rem">SYNCO 1.0 · Desarrollado por Francisco Aldunate · <a href="https://github.com/franciscoaldun/synco">github.com/franciscoaldun/synco</a></p>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+const ROLES = [
+  ['/sala', '⬡', 'Sala de Operaciones', 'Para el proyector. El Datafeed, las pantallas algedónicas, el sistema viable, el Panel del Futuro y el medidor del pueblo.', 'Docente'],
+  ['/fabrica', '▣', 'Fábrica', 'Un equipo opera una empresa del Área Social: parte de producción, formulario ECOM y teleimpresor Siemens T-100.', 'Equipos de estudiantes'],
+  ['/silla', '◯', 'Sillón de la Sala', 'Uno de los siete sillones de fibra de vidrio: botones geométricos y botón de retención para mover las pantallas.', '7 estudiantes'],
+  ['/pueblo', '◠', 'El pueblo (Cyberfolk)', 'El medidor algedónico que Beer imaginó: una aguja entre total intranquilidad y total satisfacción.', 'Todo el curso'],
+  ['/red', '⌁', 'Red Cybernet', 'La red de télex en vivo: centrales LM Ericsson, mensajes viajando y la cinta perforada en código ITA2.', 'Pantalla secundaria'],
+  ['/ecom', '▤', 'Computador de ECOM', 'El IBM 360/50H por dentro: JCL, tarjetas perforadas, listados, archivos maestro e histórico y la memoria.', 'Universidad'],
+  ['/futuro', '∿', 'Panel del Futuro (CHECO)', 'El simulador de la economía chilena en lenguaje DYNAMO. Editar ecuaciones y probar políticas.', 'Universidad'],
+  ['/control', '⚙', 'Panel del docente', 'Reloj, escenarios, imprevistos en las fábricas, señales y anuncios por televisión.', 'Sólo en este computador'],
+];
+function sillones() {
+  const g = document.getElementById('sillones'); g.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * 2 * i / 7 - Math.PI / 2, x = 200 + 98 * Math.cos(a), y = 180 + 98 * Math.sin(a);
+    const ocup = E && E.sala && E.sala.sillas[i] && E.sala.sillas[i].ocupada;
+    g.innerHTML += `<g transform="translate(${x},${y}) rotate(${a * 180 / Math.PI + 90})"><ellipse rx="22" ry="20" fill="#f1e9dc"/><ellipse rx="15" ry="13" cy="3" fill="${ocup ? '#f07f22' : '#c8642a'}"/><rect x="-26" y="-6" width="6" height="22" rx="3" fill="#e9e4da"/><rect x="20" y="-6" width="6" height="22" rx="3" fill="#e9e4da"/></g>`;
+  }
+}
+function pintar() {
+  const base = (RED && RED.urls && RED.urls[0]) || location.origin;
+  document.getElementById('url').textContent = base;
+  const q = document.getElementById('qrs'); q.innerHTML = '';
+  [['/fabrica', 'Fábricas'], ['/silla', 'Sillones de la Sala'], ['/pueblo', 'El pueblo']].forEach(([r, t]) => {
+    q.append(el('figure', null, qrImg(base + r, 150), el('figcaption', null, t)));
+  });
+  if (!(RED && RED.urls && RED.urls.length)) document.getElementById('compartir').append(el('p', { class: 'tenue' }, 'No se detectó una red local en este computador: los celulares no podrán conectarse.'));
+  const rs = document.getElementById('roles'); rs.innerHTML = '';
+  ROLES.forEach(([href, ic, t, d, q]) => rs.append(el('a', { class: 'tarjeta rol', href },
+    el('span', { class: 'icono', 'aria-hidden': 'true' }, ic), el('h3', null, t), el('p', null, d), el('span', { class: 'chip quien' }, q))));
+  sillones();
+}
+barra('Emulador de Cybersyn');
+alEvento(t => { if (t === 'estado' || t === 'sala') pintar(); });
+conectar('inicio').catch(e => aviso('No pude conectar con SYNCO: ' + e.message, 'error'));
+</script>
+</body>
+</html>

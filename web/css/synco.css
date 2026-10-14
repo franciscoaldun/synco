@@ -1,0 +1,160 @@
+/* SYNCO — estilo común. Paleta inspirada en la Sala de Operaciones de INTEC
+   (1972-73): fibra de vidrio blanca, cojines naranjos, paneles oscuros. */
+:root {
+  --fondo: #13100e;
+  --fondo2: #1b1714;
+  --panel: #221d19;
+  --panel2: #2b241f;
+  --borde: #3d342c;
+  --texto: #f1e9dc;
+  --tenue: #a99c8b;
+  --tenue2: #786c5e;
+  --naranja: #f07f22;
+  --naranja2: #ffb067;
+  --rojo: #e8432f;
+  --verde: #5db56b;
+  --azul: #57a3ef;
+  --amarillo: #f3c64f;
+  --papel: #f4eedb;
+  --papel2: #e9e1c8;
+  --tinta: #a52b23;
+  --tinta-azul: #23417a;
+  --pijama: #d9ecd5;
+  --radio: 10px;
+  --sombra: 0 6px 24px rgba(0, 0, 0, .35);
+  --letra: "Helvetica Neue", Helvetica, Arial, "Segoe UI", sans-serif;
+  --mono: "Courier New", Courier, "Liberation Mono", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--fondo); color: var(--texto); font-family: var(--letra); font-size: 16px; line-height: 1.45; }
+body { min-height: 100vh; -webkit-text-size-adjust: 100%; }
+a { color: var(--naranja2); }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3, h4 { line-height: 1.15; margin: 0 0 .5em; letter-spacing: -.01em; }
+h1 { font-size: 2rem; font-weight: 800; }
+h2 { font-size: 1.35rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0 0 .8em; }
+small, .tenue { color: var(--tenue); }
+.mono { font-family: var(--mono); }
+.oculto { display: none !important; }
+.fila { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.crece { flex: 1 1 auto; min-width: 0; }
+.envolver { max-width: 1280px; margin: 0 auto; padding: 16px; }
+
+/* ---- barra superior ---- */
+.barra {
+  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px; background: rgba(19, 16, 14, .94); backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--borde);
+}
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--texto); font-weight: 800; letter-spacing: .08em; }
+.logo svg { width: 30px; height: 30px; }
+.logo b { font-size: 1.05rem; }
+.logo span { font-weight: 400; color: var(--tenue); letter-spacing: 0; font-size: .9rem; }
+.reloj { margin-left: auto; text-align: right; font-size: .85rem; line-height: 1.25; }
+.reloj .hora { font-family: var(--mono); font-size: 1.15rem; font-weight: 700; color: var(--naranja2); }
+.reloj .fase { color: var(--tenue); }
+.reloj .esperando { color: var(--amarillo); }
+.progreso { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--naranja); transition: width .25s linear; }
+.punto { width: 9px; height: 9px; border-radius: 50%; background: var(--tenue2); display: inline-block; flex: none; }
+.punto.vivo { background: var(--verde); box-shadow: 0 0 8px var(--verde); }
+.punto.pausa { background: var(--amarillo); }
+.punto.caido { background: var(--rojo); }
+
+/* ---- piezas ---- */
+.tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; }
+.tarjeta.plana { background: transparent; }
+.tarjeta h2, .tarjeta h3 { display: flex; align-items: center; gap: 8px; }
+.etiqueta { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--tenue); font-weight: 700; }
+.boton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--borde); background: var(--panel2);
+  cursor: pointer; text-decoration: none; color: var(--texto); font-weight: 600; transition: background .15s, border-color .15s, transform .05s;
+}
+.boton:hover { border-color: var(--naranja); }
+.boton:active { transform: translateY(1px); }
+.boton:disabled { opacity: .45; cursor: not-allowed; }
+.boton.primario { background: var(--naranja); border-color: var(--naranja); color: #1a0f05; }
+.boton.primario:hover { background: var(--naranja2); }
+.boton.peligro { border-color: var(--rojo); color: #ffd6cf; }
+.boton.chico { min-height: 32px; padding: 4px 10px; font-size: .88rem; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: var(--panel2); border: 1px solid var(--borde); white-space: nowrap; }
+.chip.rojo { background: rgba(232, 67, 47, .18); border-color: var(--rojo); color: #ffb9ad; }
+.chip.verde { background: rgba(93, 181, 107, .16); border-color: var(--verde); color: #bfe8c6; }
+.chip.naranja { background: rgba(240, 127, 34, .18); border-color: var(--naranja); color: var(--naranja2); }
+.chip.amarillo { background: rgba(243, 198, 79, .15); border-color: var(--amarillo); color: #f8e2a4; }
+input[type=text], input[type=number], select, textarea {
+  background: #120f0d; border: 1px solid var(--borde); border-radius: 8px; padding: 8px 10px; min-height: 40px; width: 100%;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--naranja); outline-offset: 1px; }
+label { font-size: .88rem; color: var(--tenue); display: block; margin-bottom: 4px; }
+input[type=range] { width: 100%; accent-color: var(--naranja); }
+input[type=checkbox] { accent-color: var(--naranja); width: 18px; height: 18px; }
+.check { display: flex; align-items: center; gap: 8px; color: var(--texto); font-size: .95rem; margin: 6px 0; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+th { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--tenue); font-weight: 700; }
+.tabla-scroll { overflow-x: auto; }
+.grilla { display: grid; gap: 14px; }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .g2, .g3 { grid-template-columns: 1fr; } }
+
+/* ---- avisos ---- */
+#avisos { position: fixed; right: 14px; bottom: 14px; z-index: 90; display: flex; flex-direction: column; gap: 8px; max-width: min(420px, calc(100vw - 28px)); }
+.aviso { background: var(--panel2); border: 1px solid var(--naranja); border-left: 5px solid var(--naranja); border-radius: 8px; padding: 10px 14px; box-shadow: var(--sombra); animation: entra .25s ease-out; font-size: .92rem; }
+.aviso.error { border-color: var(--rojo); }
+@keyframes entra { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---- papel de télex (Siemens T-100) ---- */
+.papel {
+  background: var(--papel); color: var(--tinta); font-family: var(--mono); font-size: 14.5px; line-height: 1.35;
+  padding: 18px 22px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; letter-spacing: .02em;
+  box-shadow: inset 0 0 40px rgba(120, 90, 40, .18), var(--sombra);
+  background-image: linear-gradient(rgba(0,0,0,.025) 1px, transparent 1px); background-size: 100% 19.6px;
+  text-transform: uppercase;
+}
+.papel .salida { color: var(--tinta-azul); }
+.papel .sistema { color: #6b5a42; }
+.papel .cursor { display: inline-block; width: .6em; background: var(--tinta); animation: parpadeo 1s steps(1) infinite; }
+@keyframes parpadeo { 50% { opacity: 0; } }
+
+/* ---- cinta perforada ITA2 ---- */
+.cinta { display: flex; overflow-x: auto; background: #e8d9a8; border-radius: 3px; padding: 6px 4px; gap: 0; min-height: 72px; box-shadow: inset 0 0 12px rgba(0,0,0,.2); }
+.cinta .col5 { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 14px; flex: none; position: relative; }
+.cinta .agujero { width: 8px; height: 8px; border-radius: 50%; background: transparent; border: 1px dashed rgba(90, 70, 30, .25); }
+.cinta .agujero.si { background: #3b2d12; border-color: #3b2d12; }
+.cinta .arrastre { width: 4px; height: 4px; border-radius: 50%; background: #5a4a26; margin: 1px 0; }
+.cinta .sim { font-family: var(--mono); font-size: 9px; color: #5a4a26; margin-top: 1px; height: 11px; }
+
+/* ---- listados de impresora (papel pijama, 132 columnas) ---- */
+.listado {
+  font-family: var(--mono); font-size: 12px; line-height: 1.5; color: #222; white-space: pre; overflow-x: auto;
+  background: repeating-linear-gradient(#fbfbf6 0 36px, var(--pijama) 36px 72px); padding: 10px 26px; border-radius: 3px;
+  border-left: 14px dotted #cfcfc4; border-right: 14px dotted #cfcfc4; background-clip: padding-box;
+}
+
+/* ---- pantallas de la Sala ---- */
+.pantalla { background: #050505; border: 6px solid #e9e4da; border-radius: 14px; box-shadow: 0 0 0 1px #000, var(--sombra); color: #f7f3ea; overflow: hidden; position: relative; }
+.pantalla .titulo-pantalla { position: absolute; top: 8px; left: 12px; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #9b9182; }
+
+/* formas de los botones "big hand" */
+.forma { display: inline-block; width: 22px; height: 22px; vertical-align: middle; }
+.combo { display: inline-flex; gap: 3px; }
+
+/* parpadeo algedónico */
+.flecha-roja { animation: alerta 1s steps(2) infinite; }
+@keyframes alerta { 50% { opacity: .25; } }
+
+@media (max-width: 640px) {
+  .envolver { padding: 12px; }
+  h1 { font-size: 1.55rem; }
+  .barra { gap: 10px; padding: 8px 12px; }
+  .logo span { display: none; }
+  .papel { font-size: 12.5px; padding: 12px; }
+  .reloj { font-size: .78rem; }
+  .reloj .larga { display: none; }
+}

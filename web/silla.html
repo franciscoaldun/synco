@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Sillón de la Sala · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  body { background: #0d0b0a; }
+  .brazo { background: linear-gradient(#efe9dd, #d9d1c1); border-radius: 26px; padding: 18px 16px 22px; color: #2a241c; box-shadow: var(--sombra); max-width: 520px; margin: 0 auto; }
+  .brazo h2 { color: #2a241c; display: flex; justify-content: space-between; align-items: center; }
+  .botones { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 14px 0; }
+  .bg { aspect-ratio: 1; border-radius: 16px; border: 3px solid #2a241c; background: #f7f3ea; display: grid; place-items: center; cursor: pointer; touch-action: manipulation; transition: transform .05s, background .1s; }
+  .bg .forma { width: 60%; height: 60%; }
+  .bg.on { background: #f07f22; }
+  .bg:active { transform: scale(.96); }
+  .hold { width: 100%; min-height: 64px; border-radius: 16px; border: 3px solid #2a241c; background: #f3c64f; font-weight: 900; font-size: 1.2rem; letter-spacing: .2em; cursor: pointer; color: #2a241c; }
+  .hold.on { background: #2a241c; color: #f3c64f; box-shadow: 0 0 22px rgba(243,198,79,.7); }
+  .hold:disabled { opacity: .5; }
+  .cenicero { display: flex; gap: 10px; margin-top: 14px; align-items: center; color: #6b5f4b; font-size: .82rem; }
+  .cenicero span { width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(#8a8170, #4b4234); display: inline-block; }
+  .menu-mini { display: grid; gap: 6px; margin-top: 14px; }
+  .menu-mini button { display: flex; gap: 10px; align-items: center; background: #161210; border: 1px solid var(--borde); border-radius: 10px; padding: 8px 10px; color: var(--texto); text-align: left; cursor: pointer; }
+  .menu-mini .forma { width: 20px; height: 20px; }
+  .asientos { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .asientos button { aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--borde); background: var(--panel2); font-weight: 800; font-size: 1.1rem; cursor: pointer; }
+  .asientos button.libre { border-color: var(--naranja); }
+  .asientos button:disabled { opacity: .35; }
+</style>
+</head>
+<body>
+<main class="envolver" id="raiz"></main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+let miSilla = recuperar('silla', 0);
+let combo = new Set(), temporizador = null, holdActivo = false;
+
+
+function pintarEleccion() {
+  const r = $('#raiz'); r.innerHTML = '';
+  const nombre = el('input', { type: 'text', id: 'nom', maxlength: 24, value: recuperar('nombreSilla', ''), placeholder: 'Su nombre' });
+  r.append(el('h1', null, 'Siéntese en la Sala'),
+    el('p', { class: 'tenue' }, 'La Sala de Operaciones tenía siete sillones giratorios. No había mesas ni papel: las pantallas se controlaban con botones geométricos grandes en el brazo del sillón, para que nadie necesitara saber teclear.'),
+    el('label', { for: 'nom' }, 'Nombre'), nombre);
+  const a = el('div', { class: 'asientos', style: { marginTop: '16px' } });
+  E.sala.sillas.forEach((s, i) => a.append(el('button', {
+    class: s.ocupada ? '' : 'libre', disabled: s.ocupada, 'aria-label': `Sillón ${i + 1}${s.ocupada ? ', ocupado por ' + s.nombre : ''}`,
+    onclick: () => sentarse(i + 1, nombre.value),
+  }, i + 1)));
+  r.append(a);
+  r.append(el('p', { class: 'tenue', style: { marginTop: '10px' } }, E.sala.sillas.filter(s => s.ocupada).map(s => `${s.n}: ${s.nombre}`).join(' · ') || 'Todos los sillones están libres.'));
+}
+
+async function sentarse(n, nombre) {
+  nombre = (nombre || '').trim().slice(0, 24) || `Sillón ${n}`;
+  guardar('nombreSilla', nombre);
+  await intentar(async () => { await api('/api/sala/sentarse', { n, participante: pid(), nombre }); miSilla = n; guardar('silla', n); pintar(); });
+}
+
+function pintarBrazo() {
+  const r = $('#raiz'); r.innerHTML = '';
+  const s = E.sala.sillas[miSilla - 1];
+  const otro = E.sala.hold >= 0 && E.sala.hold !== miSilla - 1;
+  holdActivo = E.sala.hold === miSilla - 1;
+  const brazo = el('section', { class: 'brazo', 'aria-label': 'Brazo del sillón' },
+    el('h2', null, el('span', null, `Sillón ${miSilla} · ${s.nombre}`), el('button', { class: 'boton chico', onclick: levantarse }, 'Levantarse')),
+    el('div', { style: { fontSize: '.92rem' } }, `Pared: ${({ datafeed: 'Datafeed', algedonica: 'Pantallas algedónicas', staffy: 'Sistema viable', futuro: 'Panel del Futuro', pueblo: 'Medidor del pueblo' })[E.sala.pared]}`),
+    el('div', { class: 'botones', role: 'group', 'aria-label': 'Botones geométricos' },
+      [0, 1, 2, 3, 4].map(i => el('button', { class: 'bg' + (combo.has(i) ? ' on' : ''), 'aria-pressed': combo.has(i), 'aria-label': NOMBRES_FORMA[i], html: formaSVG(i, '#2a241c'), onclick: () => apretar(i) }))),
+    el('button', { class: 'hold' + (holdActivo ? ' on' : ''), disabled: otro, onclick: alternarHold }, otro ? `HOLD · lo tiene el sillón ${E.sala.hold + 1}` : 'HOLD'),
+    el('div', { class: 'cenicero' }, el('span'), 'cenicero y posavasos, como pidió Beer'));
+  r.append(brazo);
+  r.append(el('h3', { style: { marginTop: '18px' } }, 'Pantalla índice'),
+    el('p', { class: 'tenue', style: { fontSize: '.9rem' } }, 'Aprieten la combinación de botones y esperen un segundo. (También pueden tocar una línea.)'));
+  const m = el('div', { class: 'menu-mini' });
+  (E.sala.menu || []).forEach(o => m.append(el('button', { onclick: () => enviarCombo(o.combo), html: comboHTML(o.combo, '#f7f3ea') + `<span>${esc(o.texto)}</span>` })));
+  r.append(m);
+  // decisiones de la Sala
+  const enSala = E.senales.filter(x => x.estado === 'activa' && x.nivel === 4);
+  if (enSala.length) {
+    r.append(el('h3', { style: { marginTop: '18px' } }, 'Señales que llegaron a la Sala'));
+    enSala.forEach(x => {
+      const d = el('div', { class: 'tarjeta', style: { marginBottom: '10px' } },
+        el('b', null, `${fabrica(x.fabrica).corto} · ${x.abrev} · ${x.tipo} ${x.direccion}`),
+        el('div', { class: 'tenue', style: { fontSize: '.85rem' } }, x.causa ? `Causa informada: ${x.causa.toLowerCase()}` : 'Causa desconocida: pueden pedir verificación.'));
+      if (x.esperando) d.append(el('div', { class: 'chip amarillo' }, 'En camino: ' + x.esperando));
+      else {
+        const a = el('div', { class: 'fila', style: { gap: '6px', marginTop: '8px' } });
+        E.acciones.forEach(ac => a.append(el('button', { class: 'boton chico', onclick: () => intentar(() => api('/api/decidir', { senal: x.id, accion: ac.id, quien: `SALA DE OPERACIONES (SILLON ${miSilla})` })) }, ac.nombre)));
+        d.append(a);
+      }
+      r.append(d);
+    });
+  }
+}
+
+function apretar(i) {
+  if (combo.has(i)) combo.delete(i); else combo.add(i);
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
+  $$('.bg').forEach((b, k) => { b.classList.toggle('on', combo.has(k)); b.setAttribute('aria-pressed', combo.has(k)); });
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => { const c = Array.from(combo); combo.clear(); enviarCombo(c); }, 1100);
+}
+
+async function enviarCombo(c) {
+  $$('.bg').forEach(b => b.classList.remove('on'));
+  if (!c.length) return;
+  await intentar(() => api('/api/sala/combo', { n: miSilla, participante: pid(), combo: c }));
+}
+
+async function alternarHold() {
+  await intentar(() => api('/api/sala/hold', { n: miSilla, participante: pid(), activo: !holdActivo }));
+}
+
+async function levantarse() {
+  await intentar(() => api('/api/sala/levantarse', { participante: pid() }));
+  miSilla = 0; guardar('silla', 0); pintar();
+}
+
+function pintar() {
+  if (!E) return;
+  const s = miSilla && E.sala.sillas[miSilla - 1];
+  if (s && s.ocupada && s.p === pid()) pintarBrazo();
+  else pintarEleccion();
+}
+
+setInterval(() => { if (miSilla) api('/api/sala/latido', { participante: pid() }).catch(() => {}); }, 30000);
+barra('Sillón');
+alEvento(t => { if (['estado', 'sala', 'senal', 'senales'].includes(t)) pintar(); });
+conectar('silla', String(miSilla)).then(async () => {
+  // si ya estaba sentado (recargó la página), vuelve a su sillón
+  if (miSilla && !E.sala.sillas[miSilla - 1].ocupada) await sentarse(miSilla, recuperar('nombreSilla', ''));
+  pintar();
+}).catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>

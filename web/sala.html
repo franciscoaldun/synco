@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sala de Operaciones · SYNCO</title>
+<link rel="stylesheet" href="/css/synco.css">
+<style>
+  body { overflow-x: hidden; }
+  .sala { padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 12px; min-height: calc(100vh - 58px); }
+  .paredes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .paredes button { background: var(--panel); border: 1px solid var(--borde); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 600; color: var(--tenue); }
+  .paredes button.activa { background: var(--naranja); color: #1a0f05; border-color: var(--naranja); }
+  .paredes button:disabled { cursor: default; }
+  .escenario { flex: 1; display: grid; gap: 14px; }
+  /* datafeed */
+  .datafeed { grid-template-rows: auto 1fr; }
+  .indice-grande { padding: 34px 26px 22px; min-height: 190px; }
+  .indice-grande h2 { font-size: clamp(1.4rem, 2.6vw, 2.3rem); margin-bottom: 4px; font-weight: 800; }
+  .ruta { color: #9b9182; font-size: .95rem; margin-bottom: 14px; }
+  .menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px 22px; }
+  .op { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; background: none; text-align: left; cursor: default; font-size: 1.05rem; color: #f7f3ea; }
+  .op.clic { cursor: pointer; }
+  .op.clic:hover { border-color: #444; background: #111; }
+  .op .combo .forma { width: 26px; height: 26px; }
+  .op.pared { color: #9b9182; font-size: .95rem; }
+  .tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .chica { padding: 34px 16px 14px; min-height: 300px; }
+  .barra-cap { margin: 8px 0 12px; }
+  .barra-cap .nom { display: flex; justify-content: space-between; gap: 8px; font-size: .92rem; margin-bottom: 3px; }
+  .barra-cap .pista { position: relative; height: 26px; background: #161616; border-radius: 3px; overflow: hidden; }
+  .barra-cap .pista div { position: absolute; left: 0; top: 0; bottom: 0; }
+  .leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: #9b9182; }
+  .leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .dato { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 5px 0; font-size: .95rem; gap: 10px; }
+  .dato b { font-family: var(--mono); color: var(--naranja2); font-weight: 700; }
+  /* algedónicas */
+  .alg { grid-template-columns: 1.3fr 1fr; }
+  .senal { display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid #1f1f1f; }
+  .senal .flecha { font-size: 52px; line-height: 1; color: var(--rojo); text-align: center; }
+  .escalera { display: flex; gap: 4px; margin-top: 6px; }
+  .escalera span { flex: 1; text-align: center; font-size: .7rem; padding: 3px 2px; border-radius: 3px; background: #1a1a1a; color: #777; }
+  .escalera span.ya { background: #4a1d17; color: #ffb9ad; }
+  .escalera span.ahora { background: var(--rojo); color: #fff; font-weight: 700; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  /* staffy */
+  .staffy svg text { font-family: var(--letra); }
+  /* futuro */
+  .fut { grid-template-columns: 1.2fr 1fr; }
+  .impresora { font-family: var(--mono); font-size: 9.5px; line-height: 1.25; white-space: pre; overflow: auto; max-height: 430px; color: #d7d0bf; }
+  /* pueblo */
+  .pue { grid-template-columns: 1.1fr 1fr; }
+  .politica { font-size: clamp(1.2rem, 2.2vw, 1.9rem); font-weight: 800; margin: 6px 0 14px; }
+  /* sillones */
+  .sillones { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 4px; }
+  .sillon { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; background: var(--panel); border: 1px solid var(--borde); font-size: .88rem; }
+  .sillon .asiento { width: 26px; height: 26px; border-radius: 50%; background: #e9e4da; display: grid; place-items: center; font-weight: 800; color: #6a3a14; font-size: .8rem; }
+  .sillon.ocupado .asiento { background: var(--naranja); color: #1a0f05; }
+  .sillon.hold { border-color: var(--amarillo); box-shadow: 0 0 12px rgba(243,198,79,.5); }
+  @media (max-width: 1000px) { .tres, .alg, .fut, .pue { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="sala">
+  <div class="paredes" id="paredes"></div>
+  <section class="escenario" id="escenario" aria-live="polite"></section>
+  <div class="sillones" id="sillones"></div>
+</main>
+<script src="/js/comun.js"></script>
+<script>
+'use strict';
+const PAREDES = [['datafeed', 'Datafeed'], ['algedonica', 'Pantallas algedónicas'], ['staffy', 'Sistema viable'], ['futuro', 'Panel del Futuro'], ['pueblo', 'Medidor del pueblo']];
+const ACCIONES = () => E.acciones;
+let cacheIndice = {}, futuroRes = null, futuroPidiendo = false, ultimoECOM = 0;
+const esDocente = () => RED && RED.docente;
+
+function pintarParedes() {
+  const p = $('#paredes'); p.innerHTML = '';
+  PAREDES.forEach(([id, t]) => p.append(el('button', {
+    class: E.sala.pared === id ? 'activa' : '', disabled: !esDocente(), 'aria-pressed': E.sala.pared === id,
+    onclick: () => intentar(() => api('/api/sala/seleccionar', { pared: id })),
+  }, t)));
+  p.append(el('span', { class: 'tenue', style: { marginLeft: 'auto', fontSize: '.85rem' } }, E.sala.ultimo || (esDocente() ? 'Navegue con clic o desde los sillones' : 'Navegación desde los sillones')));
+}
+
+function pintarSillones() {
+  const c = $('#sillones'); c.innerHTML = '';
+  E.sala.sillas.forEach((s, i) => c.append(el('div', { class: 'sillon' + (s.ocupada ? ' ocupado' : '') + (E.sala.hold === i ? ' hold' : '') },
+    el('span', { class: 'asiento' }, s.n), s.ocupada ? s.nombre : 'libre', E.sala.hold === i ? el('span', { class: 'chip amarillo' }, 'HOLD') : null)));
+  c.append(el('span', { class: 'tenue', style: { marginLeft: 'auto', fontSize: '.85rem' } }, `Siéntense en ${urlCompartir('/silla')}`));
+}
+
+// ---------- DATAFEED ----------
+
+function seleccionTitulo() {
+  const s = E.sala.sel;
+  switch (s.nivel) {
+    case 'sector': return [sector(s.sector).nombre, 'Industria total › sector'];
+    case 'fabrica': { const f = fabrica(s.fabrica); return [f.corto, `Industria total › ${sector(f.sector).nombre} › empresa`]; }
+    case 'indice': { const ix = indice(s.codigo), f = fabrica(ix.fabrica); return [ix.nombre, `${sector(f.sector).nombre} › ${f.corto} › ${ix.codigo}`]; }
+  }
+  return ['Industria total', 'Todas las empresas conectadas a Cybernet'];
+}
+
+function elementosNivel() {
+  const s = E.sala.sel;
+  const prom = ixs => {
+    const u = ixs.map(i => i.ultimo).filter(Boolean);
+    const m = k => u.reduce((a, x) => a + x[k], 0) / Math.max(1, u.length);
+    return { p: m('p'), l: m('l'), perf: m('perf') };
+  };
+  switch (s.nivel) {
+    case 'total': return E.sectores.filter(x => E.indices.some(i => i.sector === x.id)).map(x => ({ nombre: x.nombre, color: x.color, ...prom(E.indices.filter(i => i.sector === x.id)), serie: serieProm(E.indices.filter(i => i.sector === x.id)) }));
+    case 'sector': return E.fabricas.filter(f => f.sector === s.sector).map(f => ({ nombre: f.corto, color: sector(f.sector).color, ...prom(E.indices.filter(i => i.fabrica === f.id)), serie: serieProm(E.indices.filter(i => i.fabrica === f.id)) }));
+    case 'fabrica': return E.indices.filter(i => i.fabrica === s.fabrica).map(i => ({ nombre: i.abrev, color: sector(i.sector).color, p: i.ultimo?.p, l: i.ultimo?.l, perf: i.ultimo?.perf, serie: i.serie }));
+    case 'indice': { const i = indice(s.codigo); return [{ nombre: i.abrev, color: sector(i.sector).color, p: i.ultimo?.p, l: i.ultimo?.l, perf: i.ultimo?.perf, serie: i.serie }]; }
+  }
+  return [];
+}
+
+function serieProm(ixs) {
+  const n = Math.min(...ixs.map(i => (i.serie || []).length));
+  if (!isFinite(n) || n < 2) return [];
+  const out = [];
+  for (let k = 0; k < n; k++) out.push(ixs.reduce((a, i) => a + i.serie[i.serie.length - n + k], 0) / ixs.length);
+  return out;
+}
+
+// Tres medidas de capacidad que generan tres medidas de logro (Beer, Brain of the Firm, 164).
+function barrasCapacidad(items) {
+  const c = el('div');
+  c.append(el('div', { class: 'leyenda' }, el('span', null, el('i', { style: { background: '#444' } }), 'potencialidad'), el('span', null, el('i', { style: { background: '#8a8170' } }), 'capacidad (latencia L)'), el('span', null, el('i', { style: { background: items[0]?.color || '#f07f22' } }), 'actualidad (rendimiento, color del sector)')));
+  items.forEach(it => {
+    const b = el('div', { class: 'barra-cap' },
+      el('div', { class: 'nom' }, el('span', null, it.nombre), el('span', { class: 'mono' }, `P ${num(it.p, 2)} · L ${num(it.l, 2)} · R ${num(it.perf, 2)}`)),
+      el('div', { class: 'pista' },
+        el('div', { style: { width: '100%', background: '#2c2c2c' } }),
+        el('div', { style: { width: `${(it.l || 0) * 100}%`, background: '#8a8170' } }),
+        el('div', { style: { width: `${(it.perf || 0) * 100}%`, background: it.color || '#f07f22' } })));
+    c.append(b);
+  });
+  return c;
+}
+
+// Beer, Brain of the Firm, p. 164: tres medidas de capacidad generan tres medidas de logro.
+function tresCapacidades(ix) {
+  const u = ix.ultimo; if (!u) return el('div');
+  const act = u.act, cap = ix.cap, pot = ix.pot, max = Math.max(act, cap, pot);
+  const barra = (n, v, color) => el('div', { class: 'barra-cap' }, el('div', { class: 'nom' }, el('span', null, n), el('span', { class: 'mono' }, `${num(v, ix.decim)} ${ix.unidad}`)),
+    el('div', { class: 'pista' }, el('div', { style: { width: `${v / max * 100}%`, background: color } })));
+  return el('div', { style: { marginTop: '18px' } },
+    el('h3', null, 'Las tres medidas de Beer'),
+    barra('Potencialidad (POT)', pot, '#444'), barra('Capacidad (CAP)', cap, '#8a8170'), barra('Actualidad (ACT)', act, '#f07f22'),
+    el('p', { class: 'mono', style: { fontSize: '.85rem', color: '#cfc6b4', marginTop: '10px', lineHeight: 1.6 } },
+      `P    = ACT/CAP${ix.inverso ? ' (invertido)' : ''} → ${num(u.p, 3)}`, el('br'), `L    = CAP/POT → ${num(u.l, 3)}`, el('br'), `REND = P × L   → ${num(u.perf, 3)}`),
+    el('p', { class: 'tenue', style: { fontSize: '.8rem' } }, 'Cada razón pasa por ARSIN(AMIN1(1.,X))/1.570796, como en PRO20.'));
+}
+
+async function pintarDatafeed(cont) {
+  const [titulo, ruta] = seleccionTitulo();
+  const grande = el('div', { class: 'pantalla indice-grande' }, el('span', { class: 'titulo-pantalla' }, 'Pantalla índice'),
+    el('h2', null, titulo), el('div', { class: 'ruta' }, ruta));
+  const menu = el('div', { class: 'menu' });
+  (E.sala.menu || []).forEach(o => menu.append(el('button', {
+    class: 'op' + (esDocente() ? ' clic' : '') + (o.tipo === 'pared' ? ' pared' : ''), tabindex: esDocente() ? 0 : -1,
+    onclick: () => esDocente() && intentar(() => api('/api/sala/combo', { n: 0, combo: o.combo })),
+    html: comboHTML(o.combo, o.tipo === 'pared' ? '#9b9182' : '#f7f3ea') + `<span>${esc(o.texto)}</span>`,
+  })));
+  grande.append(menu);
+
+  const items = elementosNivel();
+  const p1 = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Datafeed 1 · capacidades'), barrasCapacidad(items));
+  if (E.sala.sel.nivel === 'indice') p1.append(tresCapacidades(indice(E.sala.sel.codigo)));
+  const p2 = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Datafeed 2 · tendencia'));
+  const p3 = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Datafeed 3 · diapositiva'));
+  const sel = E.sala.sel;
+  if (sel.nivel === 'indice') {
+    const h = await historiaIndice(sel.codigo);
+    const ix = indice(sel.codigo);
+    const g = el('div'); p2.append(g);
+    graficoP(g, h.historia, ix.banda, { alto: 230, color: sector(ix.sector).color });
+    const u = h.historia[h.historia.length - 1];
+    p2.append(el('div', { html: probabilidadesHTML(u.prob) }));
+    p3.append(...[
+      ['Código', ix.codigo], ['Último dato (ACT)', `${num(u.act, ix.decim)} ${ix.unidad}`], ['Capacidad (CAP)', num(ix.cap, ix.decim)], ['Potencialidad (POT)', num(ix.pot, ix.decim)],
+      ['Productividad P', num(u.p, 4)], ['Latencia L', num(u.l, 4)], ['Rendimiento', num(u.perf, 4)],
+      ['Pronóstico de mañana', num(u.pron, 4)], ['Tendencia (por día)', num(u.pend, 5)], ['Banda taxonómica', `${num(ix.banda.inf, 3)} – ${num(ix.banda.sup, 3)}`],
+    ].map(([a, b]) => el('div', { class: 'dato' }, el('span', null, a), el('b', null, b))));
+    const sen = E.senales.filter(s => s.codigo === ix.codigo && s.estado === 'activa');
+    sen.forEach(s => p3.append(el('p', { style: { marginTop: '10px' } }, el('span', { class: 'chip rojo' }, `${s.tipo} ${s.direccion} · nivel ${NIVELES[s.nivel]}`), s.causa ? ` Causa: ${s.causa.toLowerCase()}` : '')));
+  } else {
+    const W = 560, H = 330, s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Tendencia de la productividad promedio' });
+    const PALETA = ['#f07f22', '#57a3ef', '#5db56b', '#f3c64f', '#e8432f', '#c88ae0', '#7fd6d0', '#e9e4da'];
+    const series = items.filter(i => i.serie && i.serie.length > 1);
+    if (sel.nivel !== 'total') series.forEach((it, k) => it.color = PALETA[k % PALETA.length]);
+    const todos = series.flatMap(i => i.serie);
+    const lo = Math.min(...todos) - .02, hi = Math.max(...todos) + .02;
+    const yv = v => 12 + (1 - (v - lo) / (hi - lo)) * (H - 40);
+    const etiquetas = [];
+    series.forEach(it => {
+      const pts = it.serie.map((v, j) => `${(10 + j / (it.serie.length - 1) * (W - 130)).toFixed(1)},${yv(v).toFixed(1)}`).join(' ');
+      s.append(svg('polyline', { points: pts, fill: 'none', stroke: it.color, 'stroke-width': 2.2, opacity: .92 }));
+      etiquetas.push({ y: yv(it.serie[it.serie.length - 1]), t: it.nombre.slice(0, 17), c: it.color });
+    });
+    // separar etiquetas para que no se encimen
+    etiquetas.sort((a, b) => a.y - b.y);
+    for (let k = 1; k < etiquetas.length; k++) if (etiquetas[k].y - etiquetas[k - 1].y < 15) etiquetas[k].y = etiquetas[k - 1].y + 15;
+    etiquetas.forEach(e => s.append(svg('text', { x: W - 114, y: e.y + 4, fill: e.c, 'font-size': 12.5, 'font-weight': 700 }, e.t)));
+    for (const v of [lo + .02, (lo + hi) / 2, hi - .02]) s.append(svg('text', { x: W - 120, y: yv(v) + 4, fill: '#555', 'font-size': 10, 'text-anchor': 'end' }, v.toFixed(2)));
+    s.append(svg('text', { x: 10, y: H - 6, fill: '#9b9182', 'font-size': 11 }, 'productividad P promedio · últimos 30 días hábiles'));
+    p2.append(s);
+    const activas = E.senales.filter(x => x.estado === 'activa' && (sel.nivel === 'total' || (sel.nivel === 'sector' && x.sector === sel.sector) || (sel.nivel === 'fabrica' && x.fabrica === sel.fabrica)));
+    if (sel.nivel === 'fabrica') {
+      const f = fabrica(sel.fabrica);
+      p3.append(...[['Empresa', f.nombre], ['Ubicación', f.lugar], ['Télex', f.respuesta], ['Operación', f.humano ? `equipo «${f.equipo || 'sin nombre'}»` : 'automática']].map(([a, b]) => el('div', { class: 'dato' }, el('span', null, a), el('b', null, b))));
+    } else {
+      const t = E.total || {};
+      p3.append(el('div', { class: 'dato' }, el('span', null, 'Índices procesados'), el('b', null, t.n || 0)),
+        el('div', { class: 'dato' }, el('span', null, 'Rendimiento promedio'), el('b', null, num(t.perf, 3))),
+        el('div', { class: 'dato' }, el('span', null, 'Última corrida de ECOM'), el('b', null, E.ecom.ultima ? `día ${E.ecom.ultima.dia} · CPU ${num(E.ecom.ultima.cpu, 2)} s` : '—')));
+    }
+    p3.append(el('h3', { style: { marginTop: '14px' } }, `Señales activas: ${activas.length}`));
+    activas.slice(0, 7).forEach(x => p3.append(el('div', { class: 'dato' }, el('span', null, `${fabrica(x.fabrica).corto} · ${x.abrev}`), el('b', { style: { color: '#ff8a78' } }, `${x.direccion} · ${NIVELES[x.nivel]}`))));
+  }
+  cont.className = 'escenario datafeed';
+  cont.replaceChildren(grande, el('div', { class: 'tres' }, p1, p2, p3));
+}
+
+async function historiaIndice(codigo) {
+  const c = cacheIndice[codigo];
+  if (c && c.dia === E.reloj.dia && c.ecom === ultimoECOM) return c.datos;
+  const datos = await obtener('/api/indice/' + codigo);
+  cacheIndice[codigo] = { dia: E.reloj.dia, ecom: ultimoECOM, datos };
+  return datos;
+}
+
+// ---------- PANTALLAS ALGEDÓNICAS ----------
+
+function tarjetaSenal(s, conAcciones) {
+  const f = fabrica(s.fabrica);
+  const arriba = s.direccion === 'ALTO';
+  const d = el('div', { class: 'senal' },
+    el('div', { class: 'flecha flecha-roja', 'aria-hidden': 'true' }, s.tipo === 'SIN DATOS' ? '?' : (arriba ? '▲' : '▼')),
+    el('div', null,
+      el('div', { style: { fontSize: '1.15rem', fontWeight: 800 } }, `${f ? f.corto : s.fabrica} · ${s.abrev}`),
+      el('div', { class: 'tenue' }, `${s.tipo} ${s.direccion} · desde el ${s.fechaInicio} · ${s.diasNivel} día(s) en este nivel${s.causa ? ' · causa: ' + s.causa.toLowerCase() : ''}`),
+      el('div', { class: 'escalera' }, [1, 2, 3, 4].map(n => el('span', { class: n < s.nivel ? 'ya' : n === s.nivel ? 'ahora' : '' }, NIVELES[n]))),
+      s.esperando ? el('div', { class: 'chip amarillo', style: { marginTop: '8px' } }, 'En camino: ' + s.esperando) : null));
+  if (conAcciones && !s.esperando && esDocente()) {
+    const a = el('div', { class: 'acciones' });
+    E.acciones.forEach(ac => a.append(el('button', { class: 'boton chico', onclick: () => intentar(() => api('/api/decidir', { senal: s.id, accion: ac.id, quien: 'SALA DE OPERACIONES' })) }, ac.nombre)));
+    d.lastChild.append(a);
+  }
+  return d;
+}
+
+function pintarAlgedonica(cont) {
+  const activas = E.senales.filter(s => s.estado === 'activa').sort((a, b) => b.nivel - a.nivel || b.diasNivel - a.diasNivel);
+  const enSala = activas.filter(s => s.nivel === 4);
+  const izq = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Pantalla algedónica 1 · señales activas'));
+  if (!activas.length) izq.append(el('p', { class: 'tenue', style: { fontSize: '1.2rem', marginTop: '20px' } }, 'Sin señales activas: todos los índices están dentro de su banda.'));
+  activas.slice(0, 9).forEach(s => izq.append(tarjetaSenal(s, false)));
+  if (activas.length > 9) izq.append(el('p', { class: 'tenue' }, `y ${activas.length - 9} más…`));
+  const der = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Pantalla algedónica 2 · decisiones de la Sala'));
+  if (!enSala.length) der.append(el('p', { class: 'tenue', style: { marginTop: '20px' } }, 'Ninguna señal llegó hasta la Sala. Mientras las empresas, los comités y CORFO resuelvan, la Sala no interviene: así se protegía la autonomía de cada nivel.'));
+  enSala.forEach(s => der.append(tarjetaSenal(s, true)));
+  if (enSala.length && !esDocente()) der.append(el('p', { class: 'tenue' }, 'Decidan desde los sillones.'));
+  const resueltas = E.senales.filter(s => s.estado === 'resuelta').slice(-5).reverse();
+  if (resueltas.length) {
+    der.append(el('h3', { style: { marginTop: '18px' } }, 'Resueltas recientemente'));
+    resueltas.forEach(s => der.append(el('div', { class: 'dato' }, el('span', null, `${fabrica(s.fabrica)?.corto || s.fabrica} · ${s.abrev}`), el('b', { style: { color: '#9fe0aa' } }, s.historial[s.historial.length - 1]?.split('· ').slice(1).join('· ') || 'resuelta'))));
+  }
+  cont.className = 'escenario alg';
+  cont.replaceChildren(izq, der);
+}
+
+// ---------- STAFFY (modelo de sistema viable) ----------
+
+function pintarStaffy(cont) {
+  const W = 1000, H = 600;
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Modelo de sistema viable con los datos de la industria total' });
+  const caja = (x, y, w, h, titulo, sub, color) => {
+    s.append(svg('rect', { x, y, width: w, height: h, rx: 6, fill: '#0b0b0b', stroke: color || '#e9e4da', 'stroke-width': 2 }));
+    s.append(svg('text', { x: x + 10, y: y + 22, fill: color || '#f7f3ea', 'font-size': 16, 'font-weight': 700 }, titulo));
+    if (sub) s.append(svg('text', { x: x + 10, y: y + 42, fill: '#9b9182', 'font-size': 13 }, sub));
+  };
+  const t = E.total || {}, pue = E.pueblo || {};
+  const alertas = E.senales.filter(x => x.estado === 'activa');
+  caja(40, 18, 560, 62, 'Sistema 5 · identidad y política: el pueblo', `Medidor algedónico: ${pue.n ? `${num((pue.prom + 1) * 50, 0)}% de satisfacción (${pue.n} ${pue.n === 1 ? 'medidor' : 'medidores'})` : 'sin medidores conectados'}`, '#f3c64f');
+  caja(40, 96, 560, 62, 'Sistema 4 · el futuro: Futuro / CHECO', futuroRes ? `Nivel de precios en 10 años: ×${num(futuroRes.series.NVP.at(-1), 1)} (con datos de Cyberstride)` : 'Simulador DYNAMO de la economía', '#57a3ef');
+  caja(40, 174, 560, 62, 'Sistema 3 · CORFO y Cyberstride', `Industria total: P ${num(t.p, 2)} · L ${num(t.l, 2)} · rendimiento ${num(t.perf, 2)} · ${alertas.length} señales activas`, '#f07f22');
+  caja(40, 252, 560, 50, 'Sistema 2 · Cybernet (red de télex)', `${E.telex.filter(m => m.dia === E.reloj.dia).length} télex hoy`, '#a99c8b');
+  // Sistemas 1: los cinco sectores
+  const secs = E.sectores.filter(x => E.indices.some(i => i.sector === x.id));
+  const anchoS = 560 / secs.length;
+  secs.forEach((sec, k) => {
+    const a = (E.porSector || {})[sec.id] || {};
+    const x = 40 + k * anchoS + 6, y = 330, w = anchoS - 12;
+    // cuadrado de gestión dividido en tres zonas: latencia arriba, diferencia al medio, productividad abajo
+    const hq = 110, L = a.l || 0, P = a.p || 0, dif = Math.abs(L - P), tot = (L + dif + P) || 1;
+    const hL = hq * L / tot, hD = hq * dif / tot, hP = hq * P / tot;
+    s.append(svg('rect', { x, y, width: w, height: hL, fill: '#8a8170' }));
+    s.append(svg('rect', { x, y: y + hL, width: w, height: hD, fill: '#2b2b2b' }));
+    s.append(svg('rect', { x, y: y + hL + hD, width: w, height: hP, fill: sec.color }));
+    s.append(svg('rect', { x, y, width: w, height: hq, fill: 'none', stroke: '#e9e4da', 'stroke-width': 1.5 }));
+    s.append(svg('text', { x: x + w / 2, y: y + hq + 18, 'text-anchor': 'middle', fill: '#f7f3ea', 'font-size': 13, 'font-weight': 700 }, sec.nombre.split(' ')[0]));
+    s.append(svg('text', { x: x + w / 2, y: y + hq + 36, 'text-anchor': 'middle', fill: '#9b9182', 'font-size': 12 }, `R ${num(a.perf, 2)} = L×P`));
+    // operación (círculo)
+    s.append(svg('circle', { cx: x + w / 2, cy: y + hq + 78, r: 28, fill: '#0b0b0b', stroke: sec.color, 'stroke-width': 3 }));
+    s.append(svg('text', { x: x + w / 2, y: y + hq + 83, 'text-anchor': 'middle', fill: '#f7f3ea', 'font-size': 13 }, `${E.fabricas.filter(f => f.sector === sec.id).length} emp.`));
+    if (a.alertas) {
+      s.append(svg('circle', { cx: x + w - 6, cy: y + 4, r: 12, fill: '#e8432f', class: 'flecha-roja' }));
+      s.append(svg('text', { x: x + w - 6, y: y + 9, 'text-anchor': 'middle', fill: '#fff', 'font-size': 13, 'font-weight': 700 }, a.alertas));
+    }
+  });
+  // ambiente y canal algedónico
+  s.append(svg('path', { d: 'M700 40 C 980 20, 990 300, 900 520 C 820 560, 700 540, 690 420 C 670 280, 640 120, 700 40 Z', fill: 'rgba(87,163,239,.08)', stroke: '#2f5f8f', 'stroke-dasharray': '6 5' }));
+  s.append(svg('text', { x: 760, y: 70, fill: '#57a3ef', 'font-size': 15, 'font-weight': 700 }, 'Ambiente'));
+  s.append(svg('text', { x: 760, y: 92, fill: '#9b9182', 'font-size': 13 }, 'mercados, el paro, las divisas'));
+  const enSala = alertas.filter(x => x.nivel === 4).length;
+  s.append(svg('path', { d: 'M620 380 C 660 300, 660 120, 610 50', fill: 'none', stroke: enSala ? '#e8432f' : '#4a1d17', 'stroke-width': enSala ? 5 : 3, class: enSala ? 'flecha-roja' : null }));
+  s.append(svg('text', { x: 640, y: 230, fill: enSala ? '#ff8a78' : '#7a4a42', 'font-size': 13, transform: 'rotate(-80 640 230)' }, `canal algedónico · ${enSala} en la Sala`));
+  s.append(svg('text', { x: 40, y: H - 8, fill: '#786c5e', 'font-size': 12 }, 'Cuadrados: latencia (arriba), diferencia (medio) y productividad (abajo), como en la pantalla Staffy de 1972.'));
+  const p = el('div', { class: 'pantalla chica staffy' }, el('span', { class: 'titulo-pantalla' }, 'Staffy · modelo de sistema viable · industria total'), s);
+  cont.className = 'escenario';
+  cont.replaceChildren(p);
+}
+
+// ---------- PANEL DEL FUTURO ----------
+
+async function correrFuturo() {
+  if (futuroPidiendo) return;
+  futuroPidiendo = true;
+  try {
+    const modelos = await obtener('/api/dynamo/modelos');
+    futuroRes = await api('/api/dynamo/correr', { fuente: modelos[0].texto, cyber: true });
+  } catch (e) { console.warn(e); }
+  futuroPidiendo = false;
+  if (E.sala.pared === 'futuro') pintarTodo();
+}
+
+function graficoLineas(series, nombres, colores, titulo) {
+  const W = 620, H = 250, m = 40;
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': titulo });
+  const t = futuroRes.tiempos;
+  nombres.forEach((n, k) => {
+    const v = series[n], lo = Math.min(...v), hi = Math.max(...v), r = hi - lo || 1;
+    const pts = v.map((x, i) => `${(m + i / (v.length - 1) * (W - m - 90)).toFixed(1)},${(14 + (1 - (x - lo) / r) * (H - 44)).toFixed(1)}`).join(' ');
+    s.append(svg('polyline', { points: pts, fill: 'none', stroke: colores[k], 'stroke-width': 2.2 }));
+    s.append(svg('text', { x: W - 84, y: 24 + k * 18, fill: colores[k], 'font-size': 13, 'font-weight': 700 }, n));
+  });
+  s.append(svg('text', { x: m, y: H - 8, fill: '#9b9182', 'font-size': 12 }, `años 0 a ${num(t[t.length - 1], 0)} · cada curva en su propia escala`));
+  return s;
+}
+
+function pintarFuturo(cont) {
+  const izq = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Panel del Futuro · CHECO con datos de Cyberstride'));
+  const der = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Salida de la impresora · DYNAMO'));
+  if (!futuroRes) { izq.append(el('p', { class: 'tenue' }, 'Corriendo el simulador…')); correrFuturo(); }
+  else {
+    izq.append(el('h3', null, futuroRes.titulo));
+    izq.append(graficoLineas(futuroRes.series, ['NVP', 'CIR', 'STB', 'CP'], ['#e8432f', '#f3c64f', '#57a3ef', '#5db56b'], 'Simulación de CHECO'));
+    const k5 = futuroRes.tiempos.findIndex(x => x >= 5 - 1e-9), kf = futuroRes.tiempos.length - 1;
+    const filas = [['NVP', 'Nivel de precios'], ['CIR', 'Circulante'], ['STB', 'Bienes y servicios'], ['CP', 'Capital productivo'], ['CPD', 'Capacidad ociosa']];
+    izq.append(el('table', { style: { margin: '6px 0 12px' } }, el('thead', null, el('tr', null, el('th', null, 'Variable'), el('th', null, 'Año 0'), el('th', null, 'Año 5'), el('th', null, 'Año 10'))),
+      el('tbody', null, filas.map(([v, n]) => el('tr', null, el('td', null, `${n} (${v})`), ...[0, k5, kf].map(k => el('td', { class: 'mono' }, num(futuroRes.series[v][k], v === 'NVP' ? 2 : 0))))))));
+    izq.append(el('p', { class: 'tenue', style: { fontSize: '.9rem' } }, `La productividad de la industria entra al modelo con el rendimiento que midió Cyberstride hoy (${num(futuroRes.constantes.CYBER, 3)}). Beer quiso conectar así CHECO y Cyberstride; en 1973 seguía siendo «un sueño no cumplido».`));
+    der.append(el('div', { class: 'impresora' }, futuroRes.textoPlot));
+  }
+  cont.className = 'escenario fut';
+  cont.replaceChildren(izq, der);
+}
+
+// ---------- MEDIDOR DEL PUEBLO ----------
+
+function medidorGrande(prom, n) {
+  const W = 560, H = 370, cx = W / 2, cy = 270, r = 230;
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': `Medidor del estudio de televisión: ${n ? num((prom + 1) * 50, 0) + '% de satisfacción' : 'sin medidores'}` });
+  for (let k = 0; k <= 20; k++) {
+    const a = Math.PI * (1 - k / 20), largo = k % 5 === 0 ? 26 : 14;
+    const col = `hsl(${k * 6}, 70%, 55%)`;
+    s.append(svg('line', { x1: cx + Math.cos(a) * r, y1: cy - Math.sin(a) * r, x2: cx + Math.cos(a) * (r - largo), y2: cy - Math.sin(a) * (r - largo), stroke: col, 'stroke-width': k % 5 === 0 ? 5 : 3 }));
+  }
+  s.append(svg('text', { x: cx - r, y: cy + 26, fill: '#e8432f', 'font-size': 16, 'text-anchor': 'start' }, 'total intranquilidad'));
+  s.append(svg('text', { x: cx + r, y: cy + 26, fill: '#5db56b', 'font-size': 16, 'text-anchor': 'end' }, 'total satisfacción'));
+  const a = Math.PI * (1 - (prom + 1) / 2);
+  s.append(svg('line', { x1: cx, y1: cy, x2: cx + Math.cos(a) * (r - 34), y2: cy - Math.sin(a) * (r - 34), stroke: n ? '#f7f3ea' : '#444', 'stroke-width': 6, 'stroke-linecap': 'round', style: 'transition: all .4s' }));
+  s.append(svg('circle', { cx, cy, r: 14, fill: '#f07f22' }));
+  s.append(svg('text', { x: cx, y: cy + 78, fill: '#f7f3ea', 'font-size': 46, 'font-weight': 800, 'text-anchor': 'middle' }, n ? `${num((prom + 1) * 50, 0)}%` : '—'));
+  return s;
+}
+
+async function pintarPueblo(cont) {
+  const p = E.pueblo || {};
+  const izq = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Estudio de televisión · suma de los medidores'),
+    el('div', { class: 'politica' }, p.politica ? `«${p.politica}»` : 'Sin anuncio en el aire'),
+    medidorGrande(p.prom || 0, p.n || 0),
+    el('p', { class: 'tenue', style: { textAlign: 'center' } }, `${p.n || 0} ${p.n === 1 ? 'medidor' : 'medidores'} · ${(p.locales || []).length} ${(p.locales || []).length === 1 ? 'local' : 'locales'} (un medidor cada tres personas) · entren en ${urlCompartir('/pueblo')}`));
+  const der = el('div', { class: 'pantalla chica' }, el('span', { class: 'titulo-pantalla' }, 'Reacción en el tiempo'));
+  const serie = await obtener('/api/pueblo/serie').catch(() => []);
+  const W = 560, H = 240, s = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Satisfacción promedio desde el anuncio' });
+  s.append(svg('line', { x1: 30, x2: W - 10, y1: H / 2, y2: H / 2, stroke: '#333' }));
+  if (serie.length > 1) {
+    const t0 = serie[0].t, t1 = serie[serie.length - 1].t, rt = (t1 - t0) || 1;
+    s.append(svg('polyline', { points: serie.map(x => `${(30 + (x.t - t0) / rt * (W - 40)).toFixed(1)},${(H / 2 - x.prom * (H / 2 - 14)).toFixed(1)}`).join(' '), fill: 'none', stroke: '#f07f22', 'stroke-width': 2.5 }));
+    s.append(svg('text', { x: 30, y: H - 6, fill: '#9b9182', 'font-size': 12 }, `${Math.round(rt / 1000)} segundos desde el anuncio`));
+  } else s.append(svg('text', { x: W / 2, y: H / 2 - 10, fill: '#9b9182', 'font-size': 15, 'text-anchor': 'middle' }, 'Esperando que el pueblo mueva sus medidores'));
+  der.append(s);
+  const hist = p.hist || [];
+  const maxH = Math.max(1, ...hist);
+  const h = svg('svg', { viewBox: '0 0 560 120', width: '100%', role: 'img', 'aria-label': 'Distribución de los medidores' });
+  hist.forEach((c, i) => {
+    const alto = c / maxH * 100;
+    h.append(svg('rect', { x: 10 + i * 49, y: 110 - alto, width: 40, height: alto, fill: `hsl(${i * 12}, 70%, 50%)` }));
+  });
+  der.append(el('h3', { style: { marginTop: '10px' } }, 'Distribución de las agujas'), h);
+  cont.className = 'escenario pue';
+  cont.replaceChildren(izq, der);
+}
+
+// ---------- ciclo ----------
+
+let pintando = false, pendiente = false;
+async function pintarTodo() {
+  if (!E) return;
+  if (pintando) { pendiente = true; return; }
+  pintando = true;
+  try {
+    pintarParedes(); pintarSillones();
+    const c = $('#escenario');
+    switch (E.sala.pared) {
+      case 'algedonica': pintarAlgedonica(c); break;
+      case 'staffy': pintarStaffy(c); break;
+      case 'futuro': pintarFuturo(c); break;
+      case 'pueblo': await pintarPueblo(c); break;
+      default: await pintarDatafeed(c);
+    }
+  } catch (e) { console.error(e); }
+  pintando = false;
+  if (pendiente) { pendiente = false; pintarTodo(); }
+}
+
+let temporizadorPueblo = null;
+barra('Sala de Operaciones');
+alEvento((t, d) => {
+  if (t === 'ecom') { ultimoECOM++; futuroRes = null; }
+  if (t === 'pueblo' && E.sala.pared === 'pueblo') { clearTimeout(temporizadorPueblo); temporizadorPueblo = setTimeout(pintarTodo, 300); return; }
+  if (['estado', 'sala', 'indices', 'senales', 'senal', 'conectados', 'politica'].includes(t)) pintarTodo();
+  if (t === 'telex' && E.sala.pared === 'staffy') pintarTodo();
+});
+conectar('sala').catch(e => aviso('No pude conectar: ' + e.message, 'error'));
+</script>
+</body>
+</html>
