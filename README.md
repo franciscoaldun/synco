@@ -115,17 +115,22 @@ La Sala de Operaciones **no tenía conexión directa** con el computador. Sus gr
 ## Cómo funcionaba: un día de Cybersyn
 
 ```mermaid
-flowchart LR
-    F["Fábrica<br/>parte de producción"] -- "télex T-100<br/>50 baudios · ITA2" --> C["CORFO<br/>central de tráfico 40750"]
-    C -- "revisa el formato<br/>y reenvía" --> E["ECOM 40506<br/>cinta → tarjetas"]
-    E --> P10["PRO10<br/>valida"]
-    P10 --> P20["PRO20 · Cyberstride<br/>índices + filtro bayesiano"]
-    P20 --> S{"¿Señal<br/>algedónica?"}
-    S -- "sí" --> N1["Empresa"]
-    N1 -- "no la corrige" --> N2["Comité sectorial"]
-    N2 -- "no la corrige" --> N3["CORFO"]
-    N3 -- "no la corrige" --> N4["Sala de Operaciones"]
-    P20 -.-> CH["CHECO<br/>simulador DYNAMO"]
+flowchart TD
+    subgraph D1 ["De día · Cybernet"]
+        direction LR
+        F["Fábrica<br/>parte de producción"] -- "télex T-100<br/>50 baudios · ITA2" --> C["CORFO 40750<br/>revisa el formato"]
+    end
+    subgraph D2 ["De noche · ECOM, IBM 360/50"]
+        direction LR
+        E["Cinta → tarjetas<br/>TR 01 · 02 · 03"] --> P10["PRO10<br/>valida"] --> P20["PRO20 · Cyberstride<br/>índices + filtro bayesiano"]
+    end
+    subgraph D3 ["Señales algedónicas"]
+        direction LR
+        N1["Empresa"] -- "no la corrige" --> N2["Comité sectorial"] -- "no la corrige" --> N3["CORFO"] -- "no la corrige" --> N4["Sala de Operaciones"]
+    end
+    D1 -- "reenvío por télex a ECOM 40506" --> D2
+    D2 -- "índice fuera de lo normal" --> D3
+    D2 -.-> CH["CHECO<br/>simulador DYNAMO"]
 ```
 
 **1. La fábrica mide.** Cada proceso importante de una fábrica se había «modelado» antes con la técnica de flujogramas cuantificados de Humberto Gabella. De cada proceso salían tres números:
