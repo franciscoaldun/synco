@@ -15,6 +15,11 @@ authors:
     website: "https://franciscoaldunate.cl"
     city: "Talca"
     country: "CL"
+doi: "10.5281/zenodo.23354093"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23354093"
+    description: "DOI de todas las versiones (Zenodo)"
 repository-code: "https://github.com/franciscoaldun/synco"
 url: "https://github.com/franciscoaldun/synco"
 license: MIT

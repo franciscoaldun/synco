@@ -8,6 +8,8 @@ Un emulador para colegios y universidades. Un curso completo opera a la vez las 
 
 **Desarrollado por Francisco Aldunate** · Talca, Chile · 2026
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23354093.svg)](https://doi.org/10.5281/zenodo.23354093)
+
 [**⬇ Descargar para Windows**](https://github.com/franciscoaldun/synco/releases/latest/download/synco.exe) · [Mac y Linux](https://github.com/franciscoaldun/synco/releases/latest) · [Guía para profesores](#guía-para-profesores) · [Qué fue Cybersyn](#qué-fue-cybersyn)
 
 </div>
@@ -521,7 +523,9 @@ Es un proyecto independiente, sin relación con CORFO ni con las personas o inst
 
 **Para citarlo** (GitHub también ofrece el botón *Cite this repository*):
 
-> Aldunate Rodríguez, F. (2026). *SYNCO: emulador del Proyecto Cybersyn (Chile, 1971–1973)* (versión 1.0) [Software]. https://github.com/franciscoaldun/synco
+> Aldunate Rodríguez, F. (2026). *SYNCO: emulador del Proyecto Cybersyn (Chile, 1971–1973)* [Software]. Zenodo. https://doi.org/10.5281/zenodo.23354093
+
+Ese DOI apunta siempre a la última versión archivada en Zenodo.
 
 El código se publica bajo la [licencia MIT](LICENSE). Puede usarlo, copiarlo, modificarlo y compartirlo libremente, también en clases y talleres, siempre que mantenga el aviso de autoría.
 
